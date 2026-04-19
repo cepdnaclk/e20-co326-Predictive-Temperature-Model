@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  mqtt:
+    image: eclipse-mosquitto:2.0
+    container_name: mqtt_broker
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    restart: always
+
+  node-red:
+    build:
+      context: ./node-red
+    container_name: node_red_ui
+    ports:
+      - "1880:1880"
+    depends_on:
+      - mqtt
+    volumes:
+      - ./node-red/flows.json:/data/flows.json
+    environment:
+      - TZ=UTC
+    restart: always
+
+  python-edge:
+    build:
+      context: ./python
+    container_name: python_edge_ai
+    depends_on:
+      - mqtt
+    environment:
+      - MQTT_BROKER=mqtt
+      - PREDICTION_HORIZON_SEC=60
+      - AVG_SAMPLE_INTERVAL_SEC=3.5
+      - WINDOW_SIZE=20
+      - FORECAST_SMOOTHING_ALPHA=0.25
+      - OUTLIER_MAD_SCALE=3.0
+      - MAX_FORECAST_SLOPE_PER_STEP=0.12
+      - FORECAST_VOLATILITY_MULT=1.8
+      - FORECAST_MIN_DELTA_C=1.0
+      - FORECAST_MAX_DELTA_C=3.0
+    restart: always
+
+  telemetry-store:
+    build:
+      context: ./storage
+    container_name: telemetry_store
+    depends_on:
+      - mqtt
+    environment:
+      - MQTT_BROKER=mqtt
+      - MQTT_PORT=1883
+      - TELEMETRY_TOPIC=sensors/+/project33/data
+      - HEALTH_TOPIC=storage/group_33/project33/health
+      - EXPORT_CMD_TOPIC=storage/group_33/project33/export
+      - EXPORT_RESULT_TOPIC=storage/group_33/project33/export/result
+      - DB_PATH=/data/telemetry.db
+    volumes:
+      - telemetry_data:/data
+      - ./storage/exports:/data/exports
+    restart: always
+
+volumes:
+  mosquitto_data:
+  mosquitto_log:
+  node_red_data:
+  telemetry_data:

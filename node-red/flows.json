@@ -1,0 +1,803 @@
+[
+    {
+        "id": "f6f2187d.f17a78",
+        "type": "tab",
+        "label": "Predictive Temperature Dashboard",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "mqtt_broker",
+        "type": "mqtt-broker",
+        "name": "Local Mosquitto",
+        "broker": "mqtt",
+        "port": "1883",
+        "clientid": "",
+        "usetls": false,
+        "compatmode": false,
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": ""
+    },
+    {
+        "id": "mqtt_in_data",
+        "type": "mqtt in",
+        "z": "f6f2187d.f17a78",
+        "name": "Temperature Data",
+        "topic": "sensors/+/project33/data",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "mqtt_broker",
+        "x": 140,
+        "y": 120,
+        "wires": [
+            [
+                "func_chart_series",
+                "func_gauge_actual",
+                "func_gauge_pred",
+                "func_metrics",
+                "func_real_status"
+            ]
+        ]
+    },
+    {
+        "id": "mqtt_in_alerts",
+        "type": "mqtt in",
+        "z": "f6f2187d.f17a78",
+        "name": "System Alerts",
+        "topic": "alerts/+/project33/status",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "mqtt_broker",
+        "x": 130,
+        "y": 220,
+        "wires": [
+            [
+                "ui_text_status",
+                "func_critical_toast"
+            ]
+        ]
+    },
+    {
+        "id": "mqtt_in_storage_health",
+        "type": "mqtt in",
+        "z": "f6f2187d.f17a78",
+        "name": "Storage Health",
+        "topic": "storage/+/project33/health",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "mqtt_broker",
+        "x": 130,
+        "y": 260,
+        "wires": [
+            [
+                "func_storage_health_fmt"
+            ]
+        ]
+    },
+    {
+        "id": "mqtt_in_export_result",
+        "type": "mqtt in",
+        "z": "f6f2187d.f17a78",
+        "name": "CSV Export Result",
+        "topic": "storage/+/project33/export/result",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "mqtt_broker",
+        "x": 140,
+        "y": 300,
+        "wires": [
+            [
+                "func_export_result_fmt"
+            ]
+        ]
+    },
+    {
+        "id": "ui_slider_threshold",
+        "type": "ui_slider",
+        "z": "f6f2187d.f17a78",
+        "name": "Threshold Slider",
+        "label": "Alert Threshold",
+        "tooltip": "Set predictive alert threshold (degC)",
+        "group": "control_group",
+        "order": 1,
+        "width": 12,
+        "height": 1,
+        "passthru": true,
+        "outs": "end",
+        "topic": "",
+        "min": "28",
+        "max": "45",
+        "step": 0.5,
+        "x": 170,
+        "y": 320,
+        "wires": [
+            [
+                "func_threshold_payload"
+            ]
+        ]
+    },
+    {
+        "id": "ui_button_export_csv",
+        "type": "ui_button",
+        "z": "f6f2187d.f17a78",
+        "name": "Export CSV",
+        "group": "control_group",
+        "order": 8,
+        "width": 6,
+        "height": 1,
+        "passthru": false,
+        "label": "Export Last 60m CSV",
+        "tooltip": "Generate CSV export from persisted telemetry",
+        "color": "#ffffff",
+        "bgcolor": "#0f77c6",
+        "icon": "file_download",
+        "payload": "",
+        "payloadType": "str",
+        "topic": "",
+        "x": 160,
+        "y": 360,
+        "wires": [
+            [
+                "func_export_cmd_payload"
+            ]
+        ]
+    },
+    {
+        "id": "func_threshold_payload",
+        "type": "function",
+        "z": "f6f2187d.f17a78",
+        "name": "Publish Threshold Control",
+        "func": "var threshold = Number(msg.payload);\nif (Number.isNaN(threshold)) {\n    return null;\n}\nmsg.topic = \"controls/group_33/project33/threshold\";\nmsg.payload = { threshold: threshold };\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 430,
+        "y": 320,
+        "wires": [
+            [
+                "mqtt_out_control"
+            ]
+        ]
+    },
+    {
+        "id": "mqtt_out_control",
+        "type": "mqtt out",
+        "z": "f6f2187d.f17a78",
+        "name": "Send Threshold",
+        "topic": "",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "mqtt_broker",
+        "x": 690,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "func_export_cmd_payload",
+        "type": "function",
+        "z": "f6f2187d.f17a78",
+        "name": "Build CSV Export Command",
+        "func": "msg.topic = \"storage/group_33/project33/export\";\nmsg.payload = { minutes: 60 };\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 430,
+        "y": 360,
+        "wires": [
+            [
+                "mqtt_out_export_cmd"
+            ]
+        ]
+    },
+    {
+        "id": "mqtt_out_export_cmd",
+        "type": "mqtt out",
+        "z": "f6f2187d.f17a78",
+        "name": "Send CSV Export Command",
+        "topic": "",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "mqtt_broker",
+        "x": 710,
+        "y": 360,
+        "wires": []
+    },
+    {
+        "id": "func_chart_series",
+        "type": "function",
+        "z": "f6f2187d.f17a78",
+        "name": "Format Temp Series",
+        "func": "var actual = Number(msg.payload.actual_temp);\nvar predicted = msg.payload.predicted_temp;\nvar sampleTs = Date.parse(msg.payload.timestamp || \"\");\nvar forecastTs = Date.parse(msg.payload.predicted_for || \"\");\n\nvar actualMsg = { topic: \"Actual\", payload: actual };\nif (!Number.isNaN(sampleTs)) {\n    actualMsg.timestamp = sampleTs;\n}\n\nif (!Number.isNaN(actual)) {\n    node.send(actualMsg);\n}\n\nif (typeof predicted === \"number\" && !Number.isNaN(predicted)) {\n    var predictedMsg = { topic: \"Predicted\", payload: predicted };\n    if (!Number.isNaN(forecastTs)) {\n        predictedMsg.timestamp = forecastTs;\n    }\n    node.send(predictedMsg);\n}\n\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 390,
+        "y": 80,
+        "wires": [
+            [
+                "ui_chart_temp"
+            ]
+        ]
+    },
+    {
+        "id": "func_gauge_actual",
+        "type": "function",
+        "z": "f6f2187d.f17a78",
+        "name": "Actual Gauge Value",
+        "func": "var actual = Number(msg.payload.actual_temp);\nif (Number.isNaN(actual)) {\n    return null;\n}\nmsg.payload = actual;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 390,
+        "y": 120,
+        "wires": [
+            [
+                "ui_gauge_temp"
+            ]
+        ]
+    },
+    {
+        "id": "func_gauge_pred",
+        "type": "function",
+        "z": "f6f2187d.f17a78",
+        "name": "Predicted Gauge Value",
+        "func": "var predicted = msg.payload.predicted_temp;\nif (typeof predicted !== \"number\" || Number.isNaN(predicted)) {\n    return null;\n}\nmsg.payload = predicted;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 400,
+        "y": 160,
+        "wires": [
+            [
+                "ui_gauge_pred"
+            ]
+        ]
+    },
+    {
+        "id": "func_metrics",
+        "type": "function",
+        "z": "f6f2187d.f17a78",
+        "name": "Build Insights",
+        "func": "var actual = Number(msg.payload.actual_temp);\nvar predicted = (typeof msg.payload.predicted_temp === \"number\") ? Number(msg.payload.predicted_temp) : null;\nvar avg = Number(msg.payload.window_avg);\nvar trend = msg.payload.trend || \"warming_up\";\nvar threshold = Number(msg.payload.threshold);\nvar horizonSec = Number(msg.payload.prediction_horizon_sec);\nvar ts = msg.payload.timestamp || \"\";\nvar forecastTs = Date.parse(msg.payload.predicted_for || \"\");\nvar sampleTs = Date.parse(ts);\n\nvar anomalyCount = context.get(\"anomalyCount\") || 0;\nif (msg.payload.is_anomaly === true) {\n    anomalyCount += 1;\n    context.set(\"anomalyCount\", anomalyCount);\n}\n\nvar absError = null;\nif (predicted !== null && !Number.isNaN(predicted) && !Number.isNaN(actual)) {\n    absError = Math.abs(predicted - actual);\n}\n\nvar pendingForecasts = context.get(\"pendingForecasts\") || [];\nif (!Number.isNaN(forecastTs) && predicted !== null && !Number.isNaN(predicted)) {\n    pendingForecasts.push({ ts: forecastTs, val: predicted });\n}\n\nif (!Number.isNaN(sampleTs)) {\n    pendingForecasts = pendingForecasts.filter(function (item) {\n        return sampleTs - item.ts < 120000;\n    });\n}\n\nvar lagValidation = null;\nif (!Number.isNaN(sampleTs) && !Number.isNaN(actual) && pendingForecasts.length > 0) {\n    var bestIndex = -1;\n    var bestDiff = Number.MAX_SAFE_INTEGER;\n\n    for (var i = 0; i < pendingForecasts.length; i++) {\n        var diff = Math.abs(sampleTs - pendingForecasts[i].ts);\n        if (diff < bestDiff) {\n            bestDiff = diff;\n            bestIndex = i;\n        }\n    }\n\n    if (bestIndex >= 0 && bestDiff <= 7000) {\n        lagValidation = Math.abs(actual - pendingForecasts[bestIndex].val);\n        pendingForecasts.splice(bestIndex, 1);\n    }\n}\n\ncontext.set(\"pendingForecasts\", pendingForecasts);\n\nreturn [\n    { payload: trend.toUpperCase() },\n    { payload: Number.isNaN(avg) ? \"N/A\" : avg.toFixed(2) + \" degC\" },\n    { payload: String(anomalyCount) },\n    { payload: absError === null ? \"N/A\" : absError.toFixed(2) + \" degC\" },\n    absError === null ? null : { topic: \"Abs Error\", payload: absError },\n    { payload: Number.isNaN(threshold) ? \"N/A\" : threshold.toFixed(1) + \" degC\" },\n    { payload: ts },\n    { payload: lagValidation === null ? \"N/A\" : lagValidation.toFixed(2) + \" degC\" },\n    { payload: Number.isNaN(horizonSec) ? \"N/A\" : Math.round(horizonSec) + \" seconds ahead\" }\n];",
+        "outputs": 9,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 380,
+        "y": 220,
+        "wires": [
+            [
+                "ui_text_trend"
+            ],
+            [
+                "ui_text_avg"
+            ],
+            [
+                "ui_text_anomaly"
+            ],
+            [
+                "ui_text_delta"
+            ],
+            [
+                "ui_chart_error"
+            ],
+            [
+                "ui_text_threshold"
+            ],
+            [
+                "ui_text_timestamp"
+            ],
+            [
+                "ui_text_lag_validation"
+            ],
+            [
+                "ui_text_prediction_horizon"
+            ]
+        ]
+    },
+    {
+        "id": "func_real_status",
+        "type": "function",
+        "z": "f6f2187d.f17a78",
+        "name": "Real Temperature Status",
+        "func": "var actual = Number(msg.payload.actual_temp);\nvar threshold = Number(msg.payload.threshold);\n\nif (Number.isNaN(actual) || Number.isNaN(threshold)) {\n    return null;\n}\n\nvar isCritical = actual > threshold;\nmsg.payload = {\n    status: isCritical ? \"CRITICAL\" : \"NORMAL\",\n    message: isCritical\n        ? (\"Actual temperature \" + actual.toFixed(2) + \" degC exceeds threshold \" + threshold.toFixed(1) + \" degC\")\n        : \"Actual temperature is within safe range.\"\n};\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 390,
+        "y": 280,
+        "wires": [
+            [
+                "ui_text_status_real"
+            ]
+        ]
+    },
+    {
+        "id": "func_storage_health_fmt",
+        "type": "function",
+        "z": "f6f2187d.f17a78",
+        "name": "Format Storage Health",
+        "func": "var rows = Number(msg.payload.row_count);\nvar lastWrite = msg.payload.last_write;\n\nvar rowsText = Number.isNaN(rows) ? \"N/A\" : String(rows);\nvar writeText = lastWrite ? String(lastWrite) : \"N/A\";\n\nreturn [\n    { payload: rowsText },\n    { payload: writeText }\n];",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 390,
+        "y": 340,
+        "wires": [
+            [
+                "ui_text_storage_rows"
+            ],
+            [
+                "ui_text_storage_last_write"
+            ]
+        ]
+    },
+    {
+        "id": "func_export_result_fmt",
+        "type": "function",
+        "z": "f6f2187d.f17a78",
+        "name": "Format CSV Export Result",
+        "func": "if (!msg.payload) {\n    msg.payload = \"No export response yet\";\n    return msg;\n}\n\nif (msg.payload.status === \"OK\") {\n    msg.payload = \"Exported \" + msg.payload.row_count + \" rows to \" + msg.payload.csv_path;\n} else {\n    msg.payload = \"Export failed: \" + (msg.payload.error || \"unknown error\");\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 410,
+        "y": 300,
+        "wires": [
+            [
+                "ui_text_export_result"
+            ]
+        ]
+    },
+    {
+        "id": "func_critical_toast",
+        "type": "function",
+        "z": "f6f2187d.f17a78",
+        "name": "Critical Toast",
+        "func": "if (msg.payload && msg.payload.status === \"CRITICAL\") {\n    msg.payload = msg.payload.message;\n    return msg;\n}\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 370,
+        "y": 260,
+        "wires": [
+            [
+                "ui_toast_critical"
+            ]
+        ]
+    },
+    {
+        "id": "ui_chart_temp",
+        "type": "ui_chart",
+        "z": "f6f2187d.f17a78",
+        "name": "Actual vs Predicted",
+        "group": "temp_group",
+        "order": 1,
+        "width": 8,
+        "height": 6,
+        "label": "Actual vs Predicted Temperature",
+        "chartType": "line",
+        "legend": "true",
+        "xformat": "HH:mm:ss",
+        "interpolate": "linear",
+        "nodata": "Waiting for telemetry...",
+        "dot": false,
+        "ymin": "20",
+        "ymax": "50",
+        "removeOlder": 1,
+        "removeOlderPoints": "",
+        "removeOlderUnit": "3600",
+        "cutout": 0,
+        "useOneColor": false,
+        "useUTC": false,
+        "colors": [
+            "#106ba3",
+            "#db3737",
+            "#0f9960"
+        ],
+        "outputs": 1,
+        "x": 700,
+        "y": 80,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_chart_error",
+        "type": "ui_chart",
+        "z": "f6f2187d.f17a78",
+        "name": "Prediction Error",
+        "group": "temp_group",
+        "order": 2,
+        "width": 4,
+        "height": 6,
+        "label": "Absolute Prediction Error",
+        "chartType": "bar",
+        "legend": "false",
+        "xformat": "HH:mm:ss",
+        "interpolate": "linear",
+        "nodata": "",
+        "dot": false,
+        "ymin": "0",
+        "ymax": "10",
+        "removeOlder": 1,
+        "removeOlderPoints": "",
+        "removeOlderUnit": "1800",
+        "cutout": 0,
+        "useOneColor": true,
+        "useUTC": false,
+        "colors": [
+            "#d9822b"
+        ],
+        "outputs": 1,
+        "x": 690,
+        "y": 220,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_gauge_temp",
+        "type": "ui_gauge",
+        "z": "f6f2187d.f17a78",
+        "name": "Current Temp",
+        "group": "kpi_group",
+        "order": 1,
+        "width": 4,
+        "height": 4,
+        "gtype": "gage",
+        "title": "Actual Temp",
+        "label": "degC",
+        "format": "{{value}}",
+        "min": 0,
+        "max": "60",
+        "colors": [
+            "#0f9960",
+            "#d9822b",
+            "#db3737"
+        ],
+        "seg1": "34",
+        "seg2": "40",
+        "x": 700,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "ui_gauge_pred",
+        "type": "ui_gauge",
+        "z": "f6f2187d.f17a78",
+        "name": "Predicted Temp",
+        "group": "kpi_group",
+        "order": 2,
+        "width": 4,
+        "height": 4,
+        "gtype": "gage",
+        "title": "Predicted Temp",
+        "label": "degC",
+        "format": "{{value}}",
+        "min": 0,
+        "max": "60",
+        "colors": [
+            "#137cbd",
+            "#d9822b",
+            "#db3737"
+        ],
+        "seg1": "34",
+        "seg2": "40",
+        "x": 700,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "ui_text_status",
+        "type": "ui_text",
+        "z": "f6f2187d.f17a78",
+        "group": "kpi_group",
+        "order": 3,
+        "width": 12,
+        "height": 1,
+        "name": "Status Display",
+        "label": "Operational Status (Predicted)",
+        "format": "<span class='status-pill {{msg.payload.status === \"CRITICAL\" ? \"critical\" : \"normal\"}}'>{{msg.payload.status}}</span> <span class='status-message'>{{msg.payload.message}}</span>",
+        "layout": "row-spread",
+        "x": 690,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "ui_text_status_real",
+        "type": "ui_text",
+        "z": "f6f2187d.f17a78",
+        "group": "kpi_group",
+        "order": 4,
+        "width": 12,
+        "height": 1,
+        "name": "Real Status Display",
+        "label": "Operational Status (Real)",
+        "format": "<span class='status-pill {{msg.payload.status === \"CRITICAL\" ? \"critical\" : \"normal\"}}'>{{msg.payload.status}}</span> <span class='status-message'>{{msg.payload.message}}</span>",
+        "layout": "row-spread",
+        "x": 700,
+        "y": 420,
+        "wires": []
+    },
+    {
+        "id": "ui_text_trend",
+        "type": "ui_text",
+        "z": "f6f2187d.f17a78",
+        "group": "kpi_group",
+        "order": 4,
+        "width": 3,
+        "height": 1,
+        "name": "Trend",
+        "label": "Trend",
+        "format": "<b>{{msg.payload}}</b>",
+        "layout": "row-left",
+        "x": 680,
+        "y": 420,
+        "wires": []
+    },
+    {
+        "id": "ui_text_avg",
+        "type": "ui_text",
+        "z": "f6f2187d.f17a78",
+        "group": "kpi_group",
+        "order": 5,
+        "width": 3,
+        "height": 1,
+        "name": "Rolling Average",
+        "label": "Window Avg",
+        "format": "{{msg.payload}}",
+        "layout": "row-left",
+        "x": 690,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "ui_text_anomaly",
+        "type": "ui_text",
+        "z": "f6f2187d.f17a78",
+        "group": "kpi_group",
+        "order": 6,
+        "width": 3,
+        "height": 1,
+        "name": "Anomaly Count",
+        "label": "Anomalies",
+        "format": "{{msg.payload}}",
+        "layout": "row-left",
+        "x": 690,
+        "y": 500,
+        "wires": []
+    },
+    {
+        "id": "ui_text_delta",
+        "type": "ui_text",
+        "z": "f6f2187d.f17a78",
+        "group": "kpi_group",
+        "order": 7,
+        "width": 3,
+        "height": 1,
+        "name": "Abs Error",
+        "label": "Abs Error",
+        "format": "{{msg.payload}}",
+        "layout": "row-left",
+        "x": 680,
+        "y": 540,
+        "wires": []
+    },
+    {
+        "id": "ui_text_threshold",
+        "type": "ui_text",
+        "z": "f6f2187d.f17a78",
+        "group": "control_group",
+        "order": 2,
+        "width": 6,
+        "height": 1,
+        "name": "Current Threshold",
+        "label": "Active Threshold",
+        "format": "{{msg.payload}}",
+        "layout": "row-left",
+        "x": 690,
+        "y": 580,
+        "wires": []
+    },
+    {
+        "id": "ui_text_lag_validation",
+        "type": "ui_text",
+        "z": "f6f2187d.f17a78",
+        "group": "control_group",
+        "order": 4,
+        "width": 6,
+        "height": 1,
+        "name": "Lag Validation Error",
+        "label": "Forecast Validation Error",
+        "format": "{{msg.payload}}",
+        "layout": "row-left",
+        "x": 710,
+        "y": 650,
+        "wires": []
+    },
+    {
+        "id": "ui_text_prediction_horizon",
+        "type": "ui_text",
+        "z": "f6f2187d.f17a78",
+        "group": "control_group",
+        "order": 5,
+        "width": 6,
+        "height": 1,
+        "name": "Prediction Horizon",
+        "label": "Prediction Horizon",
+        "format": "{{msg.payload}}",
+        "layout": "row-left",
+        "x": 700,
+        "y": 680,
+        "wires": []
+    },
+    {
+        "id": "ui_text_storage_rows",
+        "type": "ui_text",
+        "z": "f6f2187d.f17a78",
+        "group": "control_group",
+        "order": 6,
+        "width": 6,
+        "height": 1,
+        "name": "Stored Rows",
+        "label": "Stored Rows",
+        "format": "{{msg.payload}}",
+        "layout": "row-left",
+        "x": 700,
+        "y": 710,
+        "wires": []
+    },
+    {
+        "id": "ui_text_storage_last_write",
+        "type": "ui_text",
+        "z": "f6f2187d.f17a78",
+        "group": "control_group",
+        "order": 7,
+        "width": 6,
+        "height": 1,
+        "name": "Storage Last Write",
+        "label": "Storage Last Write",
+        "format": "{{msg.payload}}",
+        "layout": "row-left",
+        "x": 710,
+        "y": 740,
+        "wires": []
+    },
+    {
+        "id": "ui_text_export_result",
+        "type": "ui_text",
+        "z": "f6f2187d.f17a78",
+        "group": "control_group",
+        "order": 9,
+        "width": 12,
+        "height": 1,
+        "name": "CSV Export Result Text",
+        "label": "CSV Export Result",
+        "format": "{{msg.payload}}",
+        "layout": "row-left",
+        "x": 720,
+        "y": 770,
+        "wires": []
+    },
+    {
+        "id": "ui_text_timestamp",
+        "type": "ui_text",
+        "z": "f6f2187d.f17a78",
+        "group": "control_group",
+        "order": 3,
+        "width": 6,
+        "height": 1,
+        "name": "Last Update",
+        "label": "Last Reading",
+        "format": "{{msg.payload}}",
+        "layout": "row-left",
+        "x": 680,
+        "y": 620,
+        "wires": []
+    },
+    {
+        "id": "ui_toast_critical",
+        "type": "ui_toast",
+        "z": "f6f2187d.f17a78",
+        "position": "top right",
+        "displayTime": "5",
+        "highlight": "red",
+        "sendall": true,
+        "outputs": 0,
+        "ok": "",
+        "cancel": "",
+        "raw": false,
+        "topic": "",
+        "name": "Critical Popup",
+        "x": 680,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "temp_group",
+        "type": "ui_group",
+        "name": "Forecast Trends",
+        "tab": "home_tab",
+        "order": 1,
+        "disp": true,
+        "width": "12",
+        "collapse": false
+    },
+    {
+        "id": "kpi_group",
+        "type": "ui_group",
+        "name": "Process KPIs",
+        "tab": "home_tab",
+        "order": 2,
+        "disp": true,
+        "width": "12",
+        "collapse": false
+    },
+    {
+        "id": "control_group",
+        "type": "ui_group",
+        "name": "Control Panel",
+        "tab": "home_tab",
+        "order": 3,
+        "disp": true,
+        "width": "12",
+        "collapse": false
+    },
+    {
+        "id": "home_tab",
+        "type": "ui_tab",
+        "name": "Edge Forecast Console",
+        "icon": "dashboard",
+        "order": 1
+    },
+    {
+        "id": "ui_template_theme",
+        "type": "ui_template",
+        "z": "f6f2187d.f17a78",
+        "group": "temp_group",
+        "name": "Dashboard Theme",
+        "order": 99,
+        "width": 0,
+        "height": 0,
+        "format": "<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n<link href=\"https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Source+Code+Pro:wght@500;600&display=swap\" rel=\"stylesheet\">\n<style>\n:root {\n  --bg-base: #f3f6fb;\n  --bg-overlay: #e4edf8;\n  --panel: #ffffff;\n  --ink: #112031;\n  --muted: #5c6a79;\n  --line: #d2deeb;\n  --accent: #0f77c6;\n  --accent-2: #f28e2b;\n  --good: #138f60;\n  --critical: #c0342f;\n}\n\n.nr-dashboard-theme md-content {\n  background:\n    radial-gradient(circle at 15% 15%, #f7fbff 0%, rgba(247,251,255,0) 28%),\n    linear-gradient(140deg, var(--bg-base), var(--bg-overlay));\n  font-family: 'Rajdhani', sans-serif;\n  color: var(--ink);\n}\n\n.nr-dashboard-theme md-toolbar {\n  background: linear-gradient(90deg, #0f2a45, #1f4568);\n  color: #f4f9ff;\n  letter-spacing: 0.08em;\n  font-weight: 700;\n  text-transform: uppercase;\n}\n\n.nr-dashboard-theme .nr-dashboard-cardpanel {\n  background: var(--panel);\n  border: 1px solid var(--line);\n  border-radius: 12px;\n  box-shadow: 0 8px 20px rgba(10, 31, 54, 0.1);\n  overflow: hidden;\n  position: relative;\n}\n\n.nr-dashboard-theme .nr-dashboard-cardpanel:before {\n  content: \"\";\n  position: absolute;\n  inset: 0 0 auto 0;\n  height: 3px;\n  background: linear-gradient(90deg, var(--accent), var(--accent-2));\n}\n\n.nr-dashboard-theme .nr-dashboard-cardtitle {\n  font-family: 'Source Code Pro', monospace;\n  color: #1d3552;\n  font-size: 13px;\n  letter-spacing: 0.06em;\n  text-transform: uppercase;\n}\n\n.nr-dashboard-theme .nr-dashboard-text p,\n.nr-dashboard-theme .value {\n  color: var(--ink);\n  font-weight: 600;\n}\n\n.nr-dashboard-theme .nr-dashboard-text .label {\n  color: var(--muted);\n  font-weight: 600;\n}\n\n.nr-dashboard-theme .status-pill {\n  display: inline-block;\n  padding: 2px 10px;\n  border-radius: 999px;\n  font-size: 12px;\n  letter-spacing: 0.08em;\n  font-family: 'Source Code Pro', monospace;\n  margin-right: 8px;\n}\n\n.nr-dashboard-theme .status-pill.normal {\n  background: #e8f7f0;\n  color: var(--good);\n  border: 1px solid #b8e8d2;\n}\n\n.nr-dashboard-theme .status-pill.critical {\n  background: #fdecea;\n  color: var(--critical);\n  border: 1px solid #f6bbb6;\n}\n\n.nr-dashboard-theme .status-message {\n  color: #2d455f;\n}\n\n.nr-dashboard-theme md-slider .md-thumb,\n.nr-dashboard-theme md-slider .md-track.md-track-fill {\n  background-color: var(--accent);\n}\n\n.nr-dashboard-theme .nr-dashboard-chart text {\n  fill: #2f4c69;\n}\n\n.nr-dashboard-theme .nr-dashboard-chart .chart-container {\n  border-radius: 10px;\n}\n\n.nr-dashboard-theme .nr-dashboard-toast {\n  border-radius: 10px;\n  font-weight: 700;\n}\n\n.nr-dashboard-theme .nr-dashboard-cardpanel {\n  animation: panel-in 320ms ease both;\n}\n\n@keyframes panel-in {\n  from { transform: translateY(6px); opacity: 0; }\n  to { transform: translateY(0); opacity: 1; }\n}\n\n@media (max-width: 768px) {\n  .nr-dashboard-theme md-toolbar {\n    letter-spacing: 0.04em;\n    font-size: 15px;\n  }\n\n  .nr-dashboard-theme .nr-dashboard-cardpanel {\n    border-radius: 10px;\n    box-shadow: 0 6px 16px rgba(10, 31, 54, 0.1);\n  }\n}\n\n@media (prefers-reduced-motion: reduce) {\n  .nr-dashboard-theme .nr-dashboard-cardpanel {\n    animation: none;\n  }\n}\n</style>",
+        "storeOutMessages": false,
+        "fwdInMessages": false,
+        "resendOnRefresh": true,
+        "templateScope": "global",
+        "className": "",
+        "x": 180,
+        "y": 680,
+        "wires": [
+            []
+        ]
+    }
+]
