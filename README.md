@@ -5,6 +5,7 @@
 * [Member 1 Name]
 * [Member 2 Name]
 * [Member 3 Name]
+* [Member 4 Name]
 
 ## Project Description
 This project implements an **Edge AI Predictive Temperature System** designed for industrial IoT monitoring. The core objective is to predict the next temperature value in a time-series sequence based on historical sensor data.
