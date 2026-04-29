@@ -38,15 +38,7 @@
         "broker": "mqtt_broker",
         "x": 140,
         "y": 120,
-        "wires": [
-            [
-                "func_chart_series",
-                "func_gauge_actual",
-                "func_gauge_pred",
-                "func_metrics",
-                "func_real_status"
-            ]
-        ]
+        "wires": [["func_chart_series","func_gauge_actual","func_gauge_pred","func_metrics","func_real_status"]]
     },
     {
         "id": "mqtt_in_alerts",
@@ -59,12 +51,7 @@
         "broker": "mqtt_broker",
         "x": 130,
         "y": 220,
-        "wires": [
-            [
-                "ui_text_status",
-                "func_critical_toast"
-            ]
-        ]
+        "wires": [["ui_text_status","func_critical_toast"]]
     },
     {
         "id": "mqtt_in_storage_health",
@@ -77,11 +64,7 @@
         "broker": "mqtt_broker",
         "x": 130,
         "y": 260,
-        "wires": [
-            [
-                "func_storage_health_fmt"
-            ]
-        ]
+        "wires": [["func_storage_health_fmt"]]
     },
     {
         "id": "mqtt_in_export_result",
@@ -94,11 +77,7 @@
         "broker": "mqtt_broker",
         "x": 140,
         "y": 300,
-        "wires": [
-            [
-                "func_export_result_fmt"
-            ]
-        ]
+        "wires": [["func_export_result_fmt"]]
     },
     {
         "id": "ui_slider_threshold",
@@ -119,11 +98,7 @@
         "step": 0.5,
         "x": 170,
         "y": 320,
-        "wires": [
-            [
-                "func_threshold_payload"
-            ]
-        ]
+        "wires": [["func_threshold_payload"]]
     },
     {
         "id": "ui_button_export_csv",
@@ -145,29 +120,19 @@
         "topic": "",
         "x": 160,
         "y": 360,
-        "wires": [
-            [
-                "func_export_cmd_payload"
-            ]
-        ]
+        "wires": [["func_export_cmd_payload"]]
     },
     {
         "id": "func_threshold_payload",
         "type": "function",
         "z": "f6f2187d.f17a78",
         "name": "Publish Threshold Control",
-        "func": "var threshold = Number(msg.payload);\nif (Number.isNaN(threshold)) {\n    return null;\n}\nmsg.topic = \"controls/group_33/project33/threshold\";\nmsg.payload = { threshold: threshold };\nreturn msg;",
+        "func": "var threshold = Number(msg.payload);\nif (Number.isNaN(threshold)) { return null; }\nmsg.topic = \"controls/group_33/project33/threshold\";\nmsg.payload = { threshold: threshold };\nreturn msg;",
         "outputs": 1,
         "noerr": 0,
-        "initialize": "",
-        "finalize": "",
         "x": 430,
         "y": 320,
-        "wires": [
-            [
-                "mqtt_out_control"
-            ]
-        ]
+        "wires": [["mqtt_out_control"]]
     },
     {
         "id": "mqtt_out_control",
@@ -177,11 +142,6 @@
         "topic": "",
         "qos": "0",
         "retain": "false",
-        "respTopic": "",
-        "contentType": "",
-        "userProps": "",
-        "correl": "",
-        "expiry": "",
         "broker": "mqtt_broker",
         "x": 690,
         "y": 320,
@@ -195,15 +155,9 @@
         "func": "msg.topic = \"storage/group_33/project33/export\";\nmsg.payload = { minutes: 60 };\nreturn msg;",
         "outputs": 1,
         "noerr": 0,
-        "initialize": "",
-        "finalize": "",
         "x": 430,
         "y": 360,
-        "wires": [
-            [
-                "mqtt_out_export_cmd"
-            ]
-        ]
+        "wires": [["mqtt_out_export_cmd"]]
     },
     {
         "id": "mqtt_out_export_cmd",
@@ -213,11 +167,6 @@
         "topic": "",
         "qos": "0",
         "retain": "false",
-        "respTopic": "",
-        "contentType": "",
-        "userProps": "",
-        "correl": "",
-        "expiry": "",
         "broker": "mqtt_broker",
         "x": 710,
         "y": 360,
@@ -228,95 +177,57 @@
         "type": "function",
         "z": "f6f2187d.f17a78",
         "name": "Format Temp Series",
-        "func": "var actual = Number(msg.payload.actual_temp);\nvar predicted = msg.payload.predicted_temp;\nvar sampleTs = Date.parse(msg.payload.timestamp || \"\");\nvar forecastTs = Date.parse(msg.payload.predicted_for || \"\");\n\nvar actualMsg = { topic: \"Actual\", payload: actual };\nif (!Number.isNaN(sampleTs)) {\n    actualMsg.timestamp = sampleTs;\n}\n\nif (!Number.isNaN(actual)) {\n    node.send(actualMsg);\n}\n\nif (typeof predicted === \"number\" && !Number.isNaN(predicted)) {\n    var predictedMsg = { topic: \"Predicted\", payload: predicted };\n    if (!Number.isNaN(forecastTs)) {\n        predictedMsg.timestamp = forecastTs;\n    }\n    node.send(predictedMsg);\n}\n\nreturn null;",
+        "func": "// Actual temperature — plotted at the moment it was measured.\nvar actual = Number(msg.payload.actual_temp);\nvar sampleTs = Date.parse(msg.payload.timestamp || \"\");\n\n// Predicted temperature — plotted at the future time it targets (predicted_for).\n// With a 10 s horizon this point appears just ahead of the actual line,\n// and the actual line will catch up to it within a few samples.\nvar predicted = msg.payload.predicted_temp;\nvar forecastTs = Date.parse(msg.payload.predicted_for || \"\");\n\nif (!Number.isNaN(actual) && !Number.isNaN(sampleTs)) {\n    node.send({ topic: \"Actual\", payload: actual, timestamp: sampleTs });\n}\n\nif (typeof predicted === \"number\" && !Number.isNaN(predicted) && !Number.isNaN(forecastTs)) {\n    node.send({ topic: \"Predicted\", payload: predicted, timestamp: forecastTs });\n}\n\nreturn null;",
         "outputs": 1,
         "noerr": 0,
-        "initialize": "",
-        "finalize": "",
         "x": 390,
         "y": 80,
-        "wires": [
-            [
-                "ui_chart_temp"
-            ]
-        ]
+        "wires": [["ui_chart_temp"]]
     },
     {
         "id": "func_gauge_actual",
         "type": "function",
         "z": "f6f2187d.f17a78",
         "name": "Actual Gauge Value",
-        "func": "var actual = Number(msg.payload.actual_temp);\nif (Number.isNaN(actual)) {\n    return null;\n}\nmsg.payload = actual;\nreturn msg;",
+        "func": "var actual = Number(msg.payload.actual_temp);\nif (Number.isNaN(actual)) { return null; }\nmsg.payload = actual;\nreturn msg;",
         "outputs": 1,
         "noerr": 0,
-        "initialize": "",
-        "finalize": "",
         "x": 390,
         "y": 120,
-        "wires": [
-            [
-                "ui_gauge_temp"
-            ]
-        ]
+        "wires": [["ui_gauge_temp"]]
     },
     {
         "id": "func_gauge_pred",
         "type": "function",
         "z": "f6f2187d.f17a78",
         "name": "Predicted Gauge Value",
-        "func": "var predicted = msg.payload.predicted_temp;\nif (typeof predicted !== \"number\" || Number.isNaN(predicted)) {\n    return null;\n}\nmsg.payload = predicted;\nreturn msg;",
+        "func": "var predicted = msg.payload.predicted_temp;\nif (typeof predicted !== \"number\" || Number.isNaN(predicted)) { return null; }\nmsg.payload = predicted;\nreturn msg;",
         "outputs": 1,
         "noerr": 0,
-        "initialize": "",
-        "finalize": "",
         "x": 400,
         "y": 160,
-        "wires": [
-            [
-                "ui_gauge_pred"
-            ]
-        ]
+        "wires": [["ui_gauge_pred"]]
     },
     {
         "id": "func_metrics",
         "type": "function",
         "z": "f6f2187d.f17a78",
         "name": "Build Insights",
-        "func": "var actual = Number(msg.payload.actual_temp);\nvar predicted = (typeof msg.payload.predicted_temp === \"number\") ? Number(msg.payload.predicted_temp) : null;\nvar avg = Number(msg.payload.window_avg);\nvar trend = msg.payload.trend || \"warming_up\";\nvar threshold = Number(msg.payload.threshold);\nvar horizonSec = Number(msg.payload.prediction_horizon_sec);\nvar ts = msg.payload.timestamp || \"\";\nvar forecastTs = Date.parse(msg.payload.predicted_for || \"\");\nvar sampleTs = Date.parse(ts);\n\nvar anomalyCount = context.get(\"anomalyCount\") || 0;\nif (msg.payload.is_anomaly === true) {\n    anomalyCount += 1;\n    context.set(\"anomalyCount\", anomalyCount);\n}\n\nvar absError = null;\nif (predicted !== null && !Number.isNaN(predicted) && !Number.isNaN(actual)) {\n    absError = Math.abs(predicted - actual);\n}\n\nvar pendingForecasts = context.get(\"pendingForecasts\") || [];\nif (!Number.isNaN(forecastTs) && predicted !== null && !Number.isNaN(predicted)) {\n    pendingForecasts.push({ ts: forecastTs, val: predicted });\n}\n\nif (!Number.isNaN(sampleTs)) {\n    pendingForecasts = pendingForecasts.filter(function (item) {\n        return sampleTs - item.ts < 120000;\n    });\n}\n\nvar lagValidation = null;\nif (!Number.isNaN(sampleTs) && !Number.isNaN(actual) && pendingForecasts.length > 0) {\n    var bestIndex = -1;\n    var bestDiff = Number.MAX_SAFE_INTEGER;\n\n    for (var i = 0; i < pendingForecasts.length; i++) {\n        var diff = Math.abs(sampleTs - pendingForecasts[i].ts);\n        if (diff < bestDiff) {\n            bestDiff = diff;\n            bestIndex = i;\n        }\n    }\n\n    if (bestIndex >= 0 && bestDiff <= 7000) {\n        lagValidation = Math.abs(actual - pendingForecasts[bestIndex].val);\n        pendingForecasts.splice(bestIndex, 1);\n    }\n}\n\ncontext.set(\"pendingForecasts\", pendingForecasts);\n\nreturn [\n    { payload: trend.toUpperCase() },\n    { payload: Number.isNaN(avg) ? \"N/A\" : avg.toFixed(2) + \" degC\" },\n    { payload: String(anomalyCount) },\n    { payload: absError === null ? \"N/A\" : absError.toFixed(2) + \" degC\" },\n    absError === null ? null : { topic: \"Abs Error\", payload: absError },\n    { payload: Number.isNaN(threshold) ? \"N/A\" : threshold.toFixed(1) + \" degC\" },\n    { payload: ts },\n    { payload: lagValidation === null ? \"N/A\" : lagValidation.toFixed(2) + \" degC\" },\n    { payload: Number.isNaN(horizonSec) ? \"N/A\" : Math.round(horizonSec) + \" seconds ahead\" }\n];",
+        "func": "var actual      = Number(msg.payload.actual_temp);\nvar predicted   = (typeof msg.payload.predicted_temp === \"number\") ? Number(msg.payload.predicted_temp) : null;\nvar avg         = Number(msg.payload.window_avg);\nvar trend       = msg.payload.trend || \"warming_up\";\nvar threshold   = Number(msg.payload.threshold);\nvar horizonSec  = Number(msg.payload.prediction_horizon_sec);\nvar ts          = msg.payload.timestamp || \"\";\nvar forecastTs  = Date.parse(msg.payload.predicted_for || \"\");\nvar sampleTs    = Date.parse(ts);\n\n// Anomaly counter\nvar anomalyCount = context.get(\"anomalyCount\") || 0;\nif (msg.payload.is_anomaly === true) {\n    anomalyCount += 1;\n    context.set(\"anomalyCount\", anomalyCount);\n}\n\n// Instantaneous abs error (predicted this cycle vs actual this cycle).\n// Not a true validation — just shows how far the model is from current.\nvar absError = null;\nif (predicted !== null && !Number.isNaN(predicted) && !Number.isNaN(actual)) {\n    absError = Math.abs(predicted - actual);\n}\n\n// --- Lag validation ---\n// Store each forecast keyed by the future timestamp it targets.\n// When an actual reading arrives whose timestamp is close to a stored\n// forecast target, compare them — that is the true forecast accuracy.\n//\n// Tolerance: horizon is 10 s, samples arrive every 2-5 s, so we allow\n// ±6 s (6000 ms) to find a matching actual for a given forecast.\nvar HORIZON_MS   = horizonSec * 1000;\nvar TOLERANCE_MS = 6000;\n\nvar pendingForecasts = context.get(\"pendingForecasts\") || [];\n\n// Store new forecast\nif (!Number.isNaN(forecastTs) && predicted !== null && !Number.isNaN(predicted)) {\n    pendingForecasts.push({ ts: forecastTs, val: predicted });\n}\n\n// Expire forecasts older than horizon + tolerance (they will never be matched)\nif (!Number.isNaN(sampleTs)) {\n    pendingForecasts = pendingForecasts.filter(function(item) {\n        return (sampleTs - item.ts) < (HORIZON_MS + TOLERANCE_MS + 5000);\n    });\n}\n\n// Try to match the current actual reading to a pending forecast\nvar lagValidation = null;\nif (!Number.isNaN(sampleTs) && !Number.isNaN(actual) && pendingForecasts.length > 0) {\n    var bestIndex = -1;\n    var bestDiff  = Number.MAX_SAFE_INTEGER;\n    for (var i = 0; i < pendingForecasts.length; i++) {\n        var diff = Math.abs(sampleTs - pendingForecasts[i].ts);\n        if (diff < bestDiff) {\n            bestDiff  = diff;\n            bestIndex = i;\n        }\n    }\n    if (bestIndex >= 0 && bestDiff <= TOLERANCE_MS) {\n        lagValidation = Math.abs(actual - pendingForecasts[bestIndex].val);\n        pendingForecasts.splice(bestIndex, 1);\n    }\n}\n\ncontext.set(\"pendingForecasts\", pendingForecasts);\n\nreturn [\n    { payload: trend.toUpperCase() },\n    { payload: Number.isNaN(avg)       ? \"N/A\" : avg.toFixed(2) + \" degC\" },\n    { payload: String(anomalyCount) },\n    { payload: lagValidation === null        ? \"N/A\" : lagValidation.toFixed(2) + \" degC\" },\n    lagValidation === null ? null : { topic: \"Forecast Error\", payload: lagValidation },\n    { payload: Number.isNaN(threshold) ? \"N/A\" : threshold.toFixed(1) + \" degC\" },\n    { payload: ts },\n    { payload: lagValidation === null   ? \"N/A\" : lagValidation.toFixed(2) + \" degC\" },\n    { payload: Number.isNaN(horizonSec) ? \"N/A\" : Math.round(horizonSec) + \" seconds ahead\" }\n];",
         "outputs": 9,
         "noerr": 0,
-        "initialize": "",
-        "finalize": "",
         "x": 380,
         "y": 220,
         "wires": [
-            [
-                "ui_text_trend"
-            ],
-            [
-                "ui_text_avg"
-            ],
-            [
-                "ui_text_anomaly"
-            ],
-            [
-                "ui_text_delta"
-            ],
-            [
-                "ui_chart_error"
-            ],
-            [
-                "ui_text_threshold"
-            ],
-            [
-                "ui_text_timestamp"
-            ],
-            [
-                "ui_text_lag_validation"
-            ],
-            [
-                "ui_text_prediction_horizon"
-            ]
+            ["ui_text_trend"],
+            ["ui_text_avg"],
+            ["ui_text_anomaly"],
+            ["ui_text_delta"],
+            ["ui_chart_error"],
+            ["ui_text_threshold"],
+            ["ui_text_timestamp"],
+            ["ui_text_lag_validation"],
+            ["ui_text_prediction_horizon"]
         ]
     },
     {
@@ -324,57 +235,36 @@
         "type": "function",
         "z": "f6f2187d.f17a78",
         "name": "Real Temperature Status",
-        "func": "var actual = Number(msg.payload.actual_temp);\nvar threshold = Number(msg.payload.threshold);\n\nif (Number.isNaN(actual) || Number.isNaN(threshold)) {\n    return null;\n}\n\nvar isCritical = actual > threshold;\nmsg.payload = {\n    status: isCritical ? \"CRITICAL\" : \"NORMAL\",\n    message: isCritical\n        ? (\"Actual temperature \" + actual.toFixed(2) + \" degC exceeds threshold \" + threshold.toFixed(1) + \" degC\")\n        : \"Actual temperature is within safe range.\"\n};\nreturn msg;",
+        "func": "var actual    = Number(msg.payload.actual_temp);\nvar threshold = Number(msg.payload.threshold);\nif (Number.isNaN(actual) || Number.isNaN(threshold)) { return null; }\nvar isCritical = actual > threshold;\nmsg.payload = {\n    status:  isCritical ? \"CRITICAL\" : \"NORMAL\",\n    message: isCritical\n        ? \"Actual temperature \" + actual.toFixed(2) + \" degC exceeds threshold \" + threshold.toFixed(1) + \" degC\"\n        : \"Actual temperature is within safe range.\"\n};\nreturn msg;",
         "outputs": 1,
         "noerr": 0,
-        "initialize": "",
-        "finalize": "",
         "x": 390,
         "y": 280,
-        "wires": [
-            [
-                "ui_text_status_real"
-            ]
-        ]
+        "wires": [["ui_text_status_real"]]
     },
     {
         "id": "func_storage_health_fmt",
         "type": "function",
         "z": "f6f2187d.f17a78",
         "name": "Format Storage Health",
-        "func": "var rows = Number(msg.payload.row_count);\nvar lastWrite = msg.payload.last_write;\n\nvar rowsText = Number.isNaN(rows) ? \"N/A\" : String(rows);\nvar writeText = lastWrite ? String(lastWrite) : \"N/A\";\n\nreturn [\n    { payload: rowsText },\n    { payload: writeText }\n];",
+        "func": "var rows      = Number(msg.payload.row_count);\nvar lastWrite = msg.payload.last_write;\nreturn [\n    { payload: Number.isNaN(rows) ? \"N/A\" : String(rows) },\n    { payload: lastWrite ? String(lastWrite) : \"N/A\" }\n];",
         "outputs": 2,
         "noerr": 0,
-        "initialize": "",
-        "finalize": "",
         "x": 390,
         "y": 340,
-        "wires": [
-            [
-                "ui_text_storage_rows"
-            ],
-            [
-                "ui_text_storage_last_write"
-            ]
-        ]
+        "wires": [["ui_text_storage_rows"],["ui_text_storage_last_write"]]
     },
     {
         "id": "func_export_result_fmt",
         "type": "function",
         "z": "f6f2187d.f17a78",
         "name": "Format CSV Export Result",
-        "func": "if (!msg.payload) {\n    msg.payload = \"No export response yet\";\n    return msg;\n}\n\nif (msg.payload.status === \"OK\") {\n    msg.payload = \"Exported \" + msg.payload.row_count + \" rows to \" + msg.payload.csv_path;\n} else {\n    msg.payload = \"Export failed: \" + (msg.payload.error || \"unknown error\");\n}\nreturn msg;",
+        "func": "if (!msg.payload) { msg.payload = \"No export response yet\"; return msg; }\nif (msg.payload.status === \"OK\") {\n    msg.payload = \"Exported \" + msg.payload.row_count + \" rows to \" + msg.payload.csv_path;\n} else {\n    msg.payload = \"Export failed: \" + (msg.payload.error || \"unknown error\");\n}\nreturn msg;",
         "outputs": 1,
         "noerr": 0,
-        "initialize": "",
-        "finalize": "",
         "x": 410,
         "y": 300,
-        "wires": [
-            [
-                "ui_text_export_result"
-            ]
-        ]
+        "wires": [["ui_text_export_result"]]
     },
     {
         "id": "func_critical_toast",
@@ -384,15 +274,9 @@
         "func": "if (msg.payload && msg.payload.status === \"CRITICAL\") {\n    msg.payload = msg.payload.message;\n    return msg;\n}\nreturn null;",
         "outputs": 1,
         "noerr": 0,
-        "initialize": "",
-        "finalize": "",
         "x": 370,
         "y": 260,
-        "wires": [
-            [
-                "ui_toast_critical"
-            ]
-        ]
+        "wires": [["ui_toast_critical"]]
     },
     {
         "id": "ui_chart_temp",
@@ -418,17 +302,11 @@
         "cutout": 0,
         "useOneColor": false,
         "useUTC": false,
-        "colors": [
-            "#106ba3",
-            "#db3737",
-            "#0f9960"
-        ],
+        "colors": ["#106ba3","#db3737","#0f9960"],
         "outputs": 1,
         "x": 700,
         "y": 80,
-        "wires": [
-            []
-        ]
+        "wires": [[]]
     },
     {
         "id": "ui_chart_error",
@@ -439,7 +317,7 @@
         "order": 2,
         "width": 4,
         "height": 6,
-        "label": "Absolute Prediction Error",
+        "label": "Forecast Error (H-step aligned)",
         "chartType": "bar",
         "legend": "false",
         "xformat": "HH:mm:ss",
@@ -454,15 +332,11 @@
         "cutout": 0,
         "useOneColor": true,
         "useUTC": false,
-        "colors": [
-            "#d9822b"
-        ],
+        "colors": ["#d9822b"],
         "outputs": 1,
         "x": 690,
         "y": 220,
-        "wires": [
-            []
-        ]
+        "wires": [[]]
     },
     {
         "id": "ui_gauge_temp",
@@ -479,11 +353,7 @@
         "format": "{{value}}",
         "min": 0,
         "max": "60",
-        "colors": [
-            "#0f9960",
-            "#d9822b",
-            "#db3737"
-        ],
+        "colors": ["#0f9960","#d9822b","#db3737"],
         "seg1": "34",
         "seg2": "40",
         "x": 700,
@@ -505,11 +375,7 @@
         "format": "{{value}}",
         "min": 0,
         "max": "60",
-        "colors": [
-            "#137cbd",
-            "#d9822b",
-            "#db3737"
-        ],
+        "colors": ["#137cbd","#d9822b","#db3737"],
         "seg1": "34",
         "seg2": "40",
         "x": 700,
@@ -604,8 +470,8 @@
         "order": 7,
         "width": 3,
         "height": 1,
-        "name": "Abs Error",
-        "label": "Abs Error",
+        "name": "Forecast Error",
+        "label": "Forecast Error",
         "format": "{{msg.payload}}",
         "layout": "row-left",
         "x": 680,
@@ -796,8 +662,6 @@
         "className": "",
         "x": 180,
         "y": 680,
-        "wires": [
-            []
-        ]
+        "wires": [[]]
     }
 ]
