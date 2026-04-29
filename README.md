@@ -8,26 +8,45 @@
 * [Member 4 Name]
 
 ## Project Description
-This project implements an **Edge AI Predictive Temperature System** designed for industrial IoT monitoring. The core objective is to predict the next temperature value in a time-series sequence based on historical sensor data.
+This project implements an **Edge AI Predictive Temperature System** designed for industrial IoT monitoring. The core objective is to analyze and forecast time-series temperature data to proactively identify potential overheating events.
 
-**Regression Logic:**
-The system uses a **Simple Linear Regression** model implemented with `scikit-learn`. 
-1. **Data Ingestion:** The system maintains a sliding window of the last 10 temperature readings.
-2. **Feature Engineering:** Each reading is indexed sequentially (time-steps).
-3. **Model Training:** For every new sensor reading, the regression model is re-fitted to the current window.
-4. **Prediction:** The model extrapolates the trend to predict the value of the next time-step.
-5. **Threshold Monitoring:** The system proactively checks if the predicted value exceeds a safety threshold (35°C) and issues alerts before the anomaly potentially occurs.
+The system is fully containerized using Docker and follows a decoupled microservices architecture centered around an MQTT message broker.
+
+## AI and Predictive Model
+The intelligence of this project resides in the `python/edge_ai.py` service. It uses a machine learning pipeline to deliver reliable forecasts.
+
+**1. Data Preprocessing:**
+To ensure forecast stability, the raw sensor data undergoes two preprocessing steps:
+*   **Outlier Removal:** It uses **Median Absolute Deviation (MAD)**, a robust statistical method, to identify and clip anomalous spikes in the data. This prevents single outlier events from corrupting the underlying trend.
+*   **Data Smoothing:** **Exponential Smoothing** is applied to the cleaned data to reduce random noise and help the model focus on the primary trend.
+
+**2. Predictive Model:**
+*   **Algorithm:** The system uses **Linear Regression** (`scikit-learn`) to model the temperature trend.
+*   **Training:** The model is continuously retrained on a sliding window of the most recent data points.
+*   **Forecasting:** It extrapolates the learned trend to predict the temperature at a future point in time (defined by `PREDICTION_HORIZON_SEC`). It also calculates the trend's slope to classify it as "rising," "falling," or "stable."
+
+**3. Predictive Alerting:**
+The primary goal of the AI is to enable proactive alerts. If the forecasted temperature exceeds a configurable safety threshold, the system publishes a **"CRITICAL"** alert. This allows for intervention *before* an issue occurs, moving from reactive to predictive monitoring.
 
 ## System Architecture
-The system is fully containerized using Docker and follows a decoupled microservices architecture:
+The system is composed of four main containerized services:
 
-1.  **Sensor Simulation (Python):** Generates realistic temperature data (sine wave + noise + anomalies) and runs the Edge AI logic.
-2.  **MQTT Broker (Mosquitto):** Acts as the central communication hub, allowing the Python service to publish data and alerts.
-3.  **Data Pipeline (Node-RED):** Subscribes to MQTT topics, processes incoming JSON payloads, and routes data to the dashboard.
-4.  **Dashboard (Node-RED Dashboard):** Provides real-time visualization of actual vs. predicted temperatures, system status, and gauge readings.
+1.  **`mqtt` (Eclipse Mosquitto):** The central MQTT message broker that enables communication between all services.
+2.  **`node-red` (Node-RED):** Provides a low-code environment for creating the dashboard UI and managing data flow logic.
+3.  **`python-edge` (Python/scikit-learn):** The edge AI service that runs the temperature simulation, data preprocessing, and predictive modeling.
+4.  **`telemetry-store` (Python):** A service responsible for subscribing to telemetry topics and logging the data to a persistent database.
 
 **Data Flow:**
-`Python (Sim + AI) -> MQTT (sensors/...) -> Node-RED -> Dashboard UI`
+`Python (Sim + AI) -> MQTT Broker -> Node-RED -> Dashboard UI`
+`Python (Sim + AI) -> MQTT Broker -> Telemetry Store -> Database`
+
+## Potential Use Cases
+This project serves as a template for various real-world applications where predictive monitoring is valuable:
+
+*   **Predictive Maintenance:** Monitor industrial machinery (engines, servers) to forecast overheating events, allowing for proactive maintenance that prevents downtime and equipment failure.
+*   **Smart Building & HVAC:** Optimize energy consumption by pre-heating or pre-cooling rooms based on predicted temperature trends, enhancing comfort while saving costs.
+*   **Cold Chain Logistics:** Ensure the integrity of sensitive goods (food, pharmaceuticals) by predicting temperature deviations in refrigerated containers and alerting operators to take corrective action.
+*   **Precision Agriculture:** Manage greenhouse or soil temperatures by predicting harmful conditions, allowing automated systems to trigger irrigation, ventilation, or heating to protect crops.
 
 ## How to Run
 Ensure you have **Docker** and **Docker Compose** installed on your system.
@@ -48,19 +67,13 @@ Ensure you have **Docker** and **Docker Compose** installed on your system.
 |-------|---------------------|
 | `sensors/group_33/project33/data` | JSON containing `timestamp`, `actual_temp`, `predicted_temp`, and `is_anomaly`. |
 | `alerts/group_33/project33/status` | JSON containing `status` (NORMAL/CRITICAL), `message`, and `predicted_val`. |
+| `storage/group_33/project33/export` | Topic to command the telemetry-store to export data to a CSV file. |
 
-## Results (screenshots)
-*(Place your dashboard screenshots here after running the system)*
-- **Main Dashboard:** `docs/dashboard_main.png`
-- **Predictive Chart:** `docs/chart_comparison.png`
-- **Alert Status:** `docs/alert_view.png`
+## Future Improvements & Additional Edge Services
+The architecture can be extended with more specialized services:
 
-## Challenges
-* **Noise Handling:** Balancing the regression model to follow the trend without being over-sensitive to random sensor noise.
-* **Anomaly Detection vs. Prediction:** Distinguishing between a temporary spike (anomaly) and a genuine upward trend that requires an alert.
-* **Container Synchronization:** Ensuring the MQTT broker is fully initialized before the Python service attempts to connect.
-
-## Future Improvements
-* **Advanced AI Models:** Replacing Linear Regression with an LSTM (Long Short-Term Memory) neural network for better handling of non-linear seasonal patterns.
-* **Edge-to-Cloud Integration:** Forwarding filtered alerts to a cloud-based notification system (like AWS SNS or Telegram Bot).
-* **Self-Healing:** Implementing logic to recalibrate the model parameters automatically if prediction error (RMSE) exceeds a certain limit.
+*   **Advanced Anomaly Detection Service:** Implement more sophisticated unsupervised learning models (e.g., **Isolation Forest**, **One-Class SVM**) to detect complex, non-linear anomaly patterns that simple trends might miss.
+*   **Automated Control Service:** Create a "closed-loop" system by adding a service that subscribes to alerts and automatically triggers actuators (e.g., turn on a fan, reduce machine load) in response to critical predictions.
+*   **Data Summarizer Service:** Add a service that runs periodically to aggregate raw telemetry into hourly or daily summaries (avg, min, max), enabling efficient long-term analysis and reducing storage needs.
+*   **Advanced AI Models:** Replace Linear Regression with an **LSTM (Long Short-Term Memory)** neural network for better handling of complex, non-linear seasonal patterns in the data.
+*   **Edge-to-Cloud Integration:** Forward critical alerts to a cloud-based notification system (like AWS SNS or a Telegram Bot) for wider visibility.
