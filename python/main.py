@@ -31,7 +31,7 @@ import config
 import mqtt_client
 import payloads
 from forecasting import classify_trend, predict_temperature
-from simulation import simulate_temperature
+from simulation import TemperatureSimulator
 
 
 def main() -> None:
@@ -43,68 +43,82 @@ def main() -> None:
     # ── MQTT setup ────────────────────────────────────────────────────────────
     client = mqtt_client.build_client(state)
 
-    # ── History buffer: list of (unix_timestamp_float, temperature_float) ─────
-    # Storing real timestamps (not indices) lets the forecaster regress over
-    # actual elapsed seconds, making "60 s ahead" genuinely mean 60 seconds.
-    history: list[tuple[float, float]] = []
-
-    step = 0
+    # ── Per-device state ─────────────────────────────────────────────────────
+    # Each device gets its own simulator, history buffer, and step counter.
+    devices = []
+    for idx in range(1, config.DEVICE_COUNT + 1):
+        device_id = f"{config.DEVICE_ID_PREFIX}{idx:0{config.DEVICE_ID_PAD}d}"
+        devices.append(
+            {
+                "device_id": device_id,
+                "simulator": TemperatureSimulator(),
+                "history": [],
+                "step": 0,
+            }
+        )
 
     print("[MAIN] Sensor loop started.")
 
     while True:
         try:
-            now          = datetime.datetime.now()
-            current_temp, was_anomaly = simulate_temperature(step)
+            for device in devices:
+                now = datetime.datetime.now()
+                device_id = device["device_id"]
+                current_temp, was_anomaly = device["simulator"].simulate(device["step"])
 
-            # Append (unix_ts, temp) and cap the buffer at WINDOW_SIZE
-            history.append((time.time(), current_temp))
-            if len(history) > config.WINDOW_SIZE:
-                history.pop(0)
+                history = device["history"]
 
-            # ── Forecast ──────────────────────────────────────────────────────
-            predicted_temp, trend_slope = predict_temperature(
-                history, config.PREDICTION_HORIZON_SEC
-            )
-            trend       = classify_trend(trend_slope)
-            rolling_avg = round(float(np.mean([h[1] for h in history])), 2)
-            threshold   = state["alert_threshold"]
+                # Append (unix_ts, temp) and cap the buffer at WINDOW_SIZE
+                history.append((time.time(), current_temp))
+                if len(history) > config.WINDOW_SIZE:
+                    history.pop(0)
 
-            # ── Build & publish telemetry ─────────────────────────────────────
-            data_payload = payloads.build_data_payload(
-                timestamp              = now,
-                actual_temp            = current_temp,
-                predicted_temp         = predicted_temp,
-                trend                  = trend,
-                trend_slope            = trend_slope,
-                rolling_avg            = rolling_avg,
-                is_anomaly             = was_anomaly,
-                alert_threshold        = threshold,
-                prediction_horizon_sec = config.PREDICTION_HORIZON_SEC,
-            )
-            mqtt_client.publish_data(client, data_payload)
-            print(f"[MAIN] Published: {data_payload}")
+                # ── Forecast ──────────────────────────────────────────────────
+                predicted_temp, trend_slope = predict_temperature(
+                    history, config.PREDICTION_HORIZON_SEC, device_id
+                )
+                trend = classify_trend(trend_slope)
+                rolling_avg = round(float(np.mean([h[1] for h in history])), 2)
+                threshold = state["alert_threshold"]
 
-            # ── Alert check (predicted value vs threshold) ────────────────────
-            if predicted_temp is not None:
-                if predicted_temp > threshold:
-                    alert = payloads.build_alert_payload(
-                        timestamp              = now,
-                        predicted_temp         = predicted_temp,
-                        alert_threshold        = threshold,
-                        prediction_horizon_sec = config.PREDICTION_HORIZON_SEC,
-                    )
-                    mqtt_client.publish_alert(client, alert)
-                    print(f"[MAIN] ALERT published: {alert}")
-                else:
-                    normal = payloads.build_normal_payload(
-                        timestamp       = now,
-                        predicted_temp  = predicted_temp,
-                        alert_threshold = threshold,
-                    )
-                    mqtt_client.publish_alert(client, normal)
+                # ── Build & publish telemetry ─────────────────────────────────
+                data_payload = payloads.build_data_payload(
+                    device_id              = device_id,
+                    timestamp              = now,
+                    actual_temp            = current_temp,
+                    predicted_temp         = predicted_temp,
+                    trend                  = trend,
+                    trend_slope            = trend_slope,
+                    rolling_avg            = rolling_avg,
+                    is_anomaly             = was_anomaly,
+                    alert_threshold        = threshold,
+                    prediction_horizon_sec = config.PREDICTION_HORIZON_SEC,
+                )
+                mqtt_client.publish_data(client, data_payload, device_id)
+                print(f"[MAIN] Published {device_id}: {data_payload}")
 
-            step += 1
+                # ── Alert check (predicted value vs threshold) ────────────────
+                if predicted_temp is not None:
+                    if predicted_temp > threshold:
+                        alert = payloads.build_alert_payload(
+                            device_id              = device_id,
+                            timestamp              = now,
+                            predicted_temp         = predicted_temp,
+                            alert_threshold        = threshold,
+                            prediction_horizon_sec = config.PREDICTION_HORIZON_SEC,
+                        )
+                        mqtt_client.publish_alert(client, alert, device_id)
+                        print(f"[MAIN] ALERT published {device_id}: {alert}")
+                    else:
+                        normal = payloads.build_normal_payload(
+                            device_id        = device_id,
+                            timestamp        = now,
+                            predicted_temp   = predicted_temp,
+                            alert_threshold  = threshold,
+                        )
+                        mqtt_client.publish_alert(client, normal, device_id)
+
+                device["step"] += 1
 
             # Random sample interval: jitter prevents aliasing with the
             # sinusoidal signal and exercises the time-aware forecaster.

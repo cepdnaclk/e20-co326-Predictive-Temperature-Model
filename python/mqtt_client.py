@@ -84,11 +84,17 @@ def _make_on_message(state: dict):
 
 # ── Publishing helpers ────────────────────────────────────────────────────────
 
-def publish_data(client: mqtt.Client, payload: dict) -> None:
-    """Publish a telemetry payload to the data topic."""
-    client.publish(config.DATA_TOPIC, json.dumps(payload))
+def _format_topic(template: str, device_id: str) -> str:
+    return template.format(device_id=device_id)
 
 
-def publish_alert(client: mqtt.Client, payload: dict) -> None:
-    """Publish an alert / status payload to the alert topic."""
-    client.publish(config.ALERT_TOPIC, json.dumps(payload))
+def publish_data(client: mqtt.Client, payload: dict, device_id: str) -> None:
+    """Publish a telemetry payload to the device data topic."""
+    topic = _format_topic(config.DATA_TOPIC_TEMPLATE, device_id)
+    client.publish(topic, json.dumps(payload))
+
+
+def publish_alert(client: mqtt.Client, payload: dict, device_id: str) -> None:
+    """Publish an alert / status payload to the device alert topic."""
+    topic = _format_topic(config.ALERT_TOPIC_TEMPLATE, device_id)
+    client.publish(topic, json.dumps(payload))
