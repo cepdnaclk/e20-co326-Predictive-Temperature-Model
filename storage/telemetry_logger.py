@@ -9,7 +9,7 @@ import paho.mqtt.client as mqtt
 
 MQTT_BROKER = os.getenv("MQTT_BROKER", "mqtt")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
-TELEMETRY_TOPIC = os.getenv("TELEMETRY_TOPIC", "sensors/+/project33/data")
+TELEMETRY_TOPIC = os.getenv("TELEMETRY_TOPIC", "sensors/+/project33/+/data")
 DB_PATH = os.getenv("DB_PATH", "/data/telemetry.db")
 HEALTH_TOPIC = os.getenv("HEALTH_TOPIC", "storage/group_33/project33/health")
 EXPORT_CMD_TOPIC = os.getenv("EXPORT_CMD_TOPIC", "storage/group_33/project33/export")

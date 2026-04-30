@@ -168,23 +168,22 @@ def _make_forecaster():
     )
 
 
-_forecaster = None
+_forecasters: dict[str, _ESNForecaster] = {}
 
 
-def _get_forecaster():
-    global _forecaster
-    if _forecaster is None:
-        _forecaster = _make_forecaster()
-    return _forecaster
+def _get_forecaster(device_id: str):
+    if device_id not in _forecasters:
+        _forecasters[device_id] = _make_forecaster()
+    return _forecasters[device_id]
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-def predict_temperature(history, horizon_sec):
+def predict_temperature(history, horizon_sec, device_id="default"):
     if not history:
         return None, None
 
-    forecaster = _get_forecaster()
+    forecaster = _get_forecaster(device_id)
     _, temp = history[-1]
     return forecaster.update_and_predict(float(temp))
 
@@ -202,6 +201,8 @@ def classify_trend(slope):
     return "stable"
 
 
-def reset_forecaster():
-    global _forecaster
-    _forecaster = None
+def reset_forecaster(device_id: str | None = None):
+    if device_id is None:
+        _forecasters.clear()
+        return
+    _forecasters.pop(device_id, None)

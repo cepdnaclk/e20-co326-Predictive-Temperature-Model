@@ -12,6 +12,7 @@ import datetime
 
 def build_data_payload(
     *,
+    device_id: str,
     timestamp: datetime.datetime,
     actual_temp: float,
     predicted_temp: float | None,
@@ -23,7 +24,7 @@ def build_data_payload(
     prediction_horizon_sec: float,
 ) -> dict:
     """
-    Telemetry payload published to DATA_TOPIC on every sensor reading.
+    Telemetry payload published to the device data topic on every reading.
 
     The ``predicted_for`` field is the wall-clock time that the forecast
     targets (timestamp + horizon), so Node-RED can plot both the actual
@@ -32,6 +33,7 @@ def build_data_payload(
     predicted_for = timestamp + datetime.timedelta(seconds=prediction_horizon_sec)
 
     return {
+        "device_id":             device_id,
         "timestamp":              timestamp.isoformat(),
         "actual_temp":            actual_temp,
         "predicted_temp":         predicted_temp if predicted_temp is not None
@@ -48,6 +50,7 @@ def build_data_payload(
 
 def build_alert_payload(
     *,
+    device_id: str,
     timestamp: datetime.datetime,
     predicted_temp: float,
     alert_threshold: float,
@@ -58,10 +61,11 @@ def build_alert_payload(
     the alert threshold.
     """
     return {
+        "device_id":  device_id,
         "timestamp":   timestamp.isoformat(),
         "status":      "CRITICAL",
         "message": (
-            f"Predicted temperature in {prediction_horizon_sec:.0f}s is "
+            f"{device_id}: predicted temperature in {prediction_horizon_sec:.0f}s is "
             f"{predicted_temp} °C, exceeding threshold {alert_threshold} °C!"
         ),
         "predicted_val": predicted_temp,
@@ -71,6 +75,7 @@ def build_alert_payload(
 
 def build_normal_payload(
     *,
+    device_id: str,
     timestamp: datetime.datetime,
     predicted_temp: float,
     alert_threshold: float,
@@ -79,9 +84,10 @@ def build_normal_payload(
     NORMAL status payload — published when the system is within safe limits.
     """
     return {
+        "device_id":    device_id,
         "timestamp":     timestamp.isoformat(),
         "status":        "NORMAL",
-        "message":       "System within safe range.",
+        "message":       f"{device_id}: system within safe range.",
         "predicted_val": predicted_temp,
         "threshold":     alert_threshold,
     }
