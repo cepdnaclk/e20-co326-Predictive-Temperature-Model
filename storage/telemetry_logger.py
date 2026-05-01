@@ -42,17 +42,31 @@ def ensure_db_schema(conn):
             trend_slope REAL,
             is_anomaly INTEGER,
             window_avg REAL,
+            forecast_error REAL,
+            forecast_mae REAL,
             raw_payload TEXT NOT NULL,
             ingested_at TEXT NOT NULL
         )
         """
     )
+    _ensure_column(conn, "telemetry", "forecast_error", "REAL")
+    _ensure_column(conn, "telemetry", "forecast_mae", "REAL")
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_telemetry_source_ts ON telemetry(source_timestamp)"
     )
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_telemetry_ingested_at ON telemetry(ingested_at)"
     )
+    conn.commit()
+
+
+def _ensure_column(conn, table, column, col_type):
+    cur = conn.cursor()
+    cur.execute(f"PRAGMA table_info({table})")
+    existing = {row[1] for row in cur.fetchall()}
+    if column in existing:
+        return
+    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
     conn.commit()
 
 
@@ -72,6 +86,8 @@ def insert_telemetry(conn, topic, payload_obj):
             trend_slope,
             is_anomaly,
             window_avg,
+            forecast_error,
+            forecast_mae,
             raw_payload,
             ingested_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -88,6 +104,8 @@ def insert_telemetry(conn, topic, payload_obj):
             to_float_or_none(payload_obj.get("trend_slope")),
             1 if bool(payload_obj.get("is_anomaly")) else 0,
             to_float_or_none(payload_obj.get("window_avg")),
+            to_float_or_none(payload_obj.get("forecast_error")),
+            to_float_or_none(payload_obj.get("forecast_mae")),
             json.dumps(payload_obj),
             now_iso,
         ),
@@ -119,7 +137,7 @@ def export_recent_csv(conn, minutes, export_dir="/data/exports"):
         """
         SELECT source_timestamp, actual_temp, predicted_temp, predicted_for,
                prediction_horizon_sec, threshold, trend, trend_slope,
-               is_anomaly, window_avg, ingested_at
+             is_anomaly, window_avg, forecast_error, forecast_mae, ingested_at
         FROM telemetry
         WHERE ingested_at >= datetime('now', ?)
         ORDER BY id ASC
@@ -139,6 +157,8 @@ def export_recent_csv(conn, minutes, export_dir="/data/exports"):
         "trend_slope",
         "is_anomaly",
         "window_avg",
+        "forecast_error",
+        "forecast_mae",
         "ingested_at",
     ]
 

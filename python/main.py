@@ -54,6 +54,8 @@ def main() -> None:
                 "simulator": TemperatureSimulator(),
                 "history": [],
                 "step": 0,
+                "pending_predictions": [],
+                "error_history": [],
             }
         )
 
@@ -63,6 +65,7 @@ def main() -> None:
         try:
             for device in devices:
                 now = datetime.datetime.now()
+                now_ts = time.time()
                 device_id = device["device_id"]
                 current_temp, was_anomaly = device["simulator"].simulate(device["step"])
 
@@ -81,6 +84,24 @@ def main() -> None:
                 rolling_avg = round(float(np.mean([h[1] for h in history])), 2)
                 threshold = state["alert_threshold"]
 
+                # ── Forecast accuracy (match due predictions) ──────────────
+                forecast_error = None
+                pending = device["pending_predictions"]
+                error_history = device["error_history"]
+
+                if pending and pending[0]["target_ts"] <= now_ts:
+                    matched = pending.pop(0)
+                    forecast_error = round(
+                        abs(current_temp - matched["predicted_temp"]), 3
+                    )
+                    error_history.append(forecast_error)
+                    if len(error_history) > config.FORECAST_ERROR_WINDOW:
+                        error_history.pop(0)
+
+                forecast_mae = None
+                if error_history:
+                    forecast_mae = round(sum(error_history) / len(error_history), 3)
+
                 # ── Build & publish telemetry ─────────────────────────────────
                 data_payload = payloads.build_data_payload(
                     device_id              = device_id,
@@ -93,9 +114,19 @@ def main() -> None:
                     is_anomaly             = was_anomaly,
                     alert_threshold        = threshold,
                     prediction_horizon_sec = config.PREDICTION_HORIZON_SEC,
+                    forecast_error          = forecast_error,
+                    forecast_mae            = forecast_mae,
                 )
                 mqtt_client.publish_data(client, data_payload, device_id)
                 print(f"[MAIN] Published {device_id}: {data_payload}")
+
+                if predicted_temp is not None:
+                    pending.append(
+                        {
+                            "target_ts": now_ts + config.PREDICTION_HORIZON_SEC,
+                            "predicted_temp": predicted_temp,
+                        }
+                    )
 
                 # ── Alert check (predicted value vs threshold) ────────────────
                 if predicted_temp is not None:

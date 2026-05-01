@@ -35,6 +35,7 @@ MAX_FORECAST_SLOPE_PER_STEP = float(os.getenv("MAX_FORECAST_SLOPE_PER_STEP", "0.
 FORECAST_VOLATILITY_MULT    = float(os.getenv("FORECAST_VOLATILITY_MULT",    "1.8"))
 FORECAST_MIN_DELTA_C        = float(os.getenv("FORECAST_MIN_DELTA_C",        "1.0"))
 FORECAST_MAX_DELTA_C        = float(os.getenv("FORECAST_MAX_DELTA_C",        "3.0"))
+FORECAST_ERROR_WINDOW       = int(os.getenv("FORECAST_ERROR_WINDOW",       "20"))
 
 # Trend classification: slope magnitude (°C/s) below which the signal is
 # considered stable.  Exposed here so it can be tuned alongside the other

@@ -45,6 +45,8 @@ Payload schema:
 - trend: string in warming_up, rising, falling, stable
 - trend_slope: number or null
 - window_avg: number
+- forecast_error: number or null (absolute error when a forecast target is reached)
+- forecast_mae: number or null (rolling mean absolute error)
 - threshold: number
 
 Example:

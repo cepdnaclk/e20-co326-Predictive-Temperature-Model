@@ -22,6 +22,8 @@ def build_data_payload(
     is_anomaly: bool,
     alert_threshold: float,
     prediction_horizon_sec: float,
+    forecast_error: float | None,
+    forecast_mae: float | None,
 ) -> dict:
     """
     Telemetry payload published to the device data topic on every reading.
@@ -44,6 +46,8 @@ def build_data_payload(
         "trend":                  trend,
         "trend_slope":            trend_slope,
         "window_avg":             rolling_avg,
+        "forecast_error":         forecast_error,
+        "forecast_mae":           forecast_mae,
         "threshold":              alert_threshold,
     }
 
