@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import mqtt from 'mqtt'
 import {
   CartesianGrid,
+  Label,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -15,6 +17,12 @@ const DEVICE_IDS = ['device_01', 'device_02', 'device_03', 'device_04', 'device_
 const MAX_POINTS = 120
 const MIN_TEMP = 20
 const MAX_TEMP = 60
+
+// Chart time window — axis is a rolling window anchored to the current
+// wall-clock time. Past: CHART_PAST_MS behind "now"; future: CHART_FUTURE_MS
+// ahead of "now" to give the prediction line room on the right side.
+const CHART_PAST_MS = 2 * 60 * 1000      // 2 minutes of history
+const CHART_FUTURE_MS = 60 * 1000        // matches default PREDICTION_HORIZON_SEC
 
 const emptyDevice = () => ({
   actual: null,
@@ -53,6 +61,21 @@ const getDeviceId = (topic, payload) => {
 }
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max)
+
+// Evenly-spaced ticks across the rolling window. Anchored to "now" rounded
+// down to the nearest 30 s, so tick labels stay at nice round times instead
+// of jittering every second.
+const TICK_STEP_MS = 30 * 1000
+const buildTicks = (nowMs) => {
+  const start = nowMs - CHART_PAST_MS
+  const end = nowMs + CHART_FUTURE_MS
+  const firstTick = Math.ceil(start / TICK_STEP_MS) * TICK_STEP_MS
+  const ticks = []
+  for (let t = firstTick; t <= end; t += TICK_STEP_MS) {
+    ticks.push(t)
+  }
+  return ticks
+}
 
 function App() {
   const [activeDevice, setActiveDevice] = useState(DEVICE_IDS[0])
@@ -111,12 +134,44 @@ function App() {
               ? data.predicted_temp
               : Number(data.predicted_temp)
           const timestamp = data.timestamp || new Date().toISOString()
-          const nextPoint = {
-            ts: timestamp,
+
+          // The edge service publishes naive local-time strings (no TZ), so
+          // parsing them directly on the browser can be off by hours when the
+          // container and browser are in different timezones. Instead, anchor
+          // the chart to the browser clock: use the receipt time as "now" and
+          // place the predicted point `prediction_horizon_sec` into the
+          // future.
+          const actualTs = Date.now()
+          const horizonSec =
+            typeof data.prediction_horizon_sec === 'number'
+              ? data.prediction_horizon_sec
+              : Number(data.prediction_horizon_sec) || 60
+          const predictedTs = actualTs + horizonSec * 1000
+
+          const actualPoint = {
+            ts: actualTs,
             actual: Number.isNaN(actual) ? null : actual,
-            predicted: Number.isNaN(predicted) ? null : predicted,
+            predicted: null,
           }
-          const series = [...prev[deviceId].series, nextPoint].slice(-MAX_POINTS)
+
+          const predictedPoint = Number.isNaN(predicted)
+            ? null
+            : {
+                ts: predictedTs,
+                actual: null,
+                predicted,
+              }
+
+          // Merge the incoming points into the existing series:
+          //  - sort chronologically so Recharts draws the line left-to-right
+          //  - keep only the most recent MAX_POINTS entries
+          const series = [
+            ...prev[deviceId].series,
+            ...(actualPoint ? [actualPoint] : []),
+            ...(predictedPoint ? [predictedPoint] : []),
+          ]
+            .sort((a, b) => a.ts - b.ts)
+            .slice(-MAX_POINTS)
 
           return {
             ...prev,
@@ -379,7 +434,19 @@ function App() {
                 <ResponsiveContainer width="100%" height={280}>
                   <LineChart data={activeData.series} margin={{ left: 10, right: 20 }}>
                     <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="4 4" />
-                    <XAxis dataKey="ts" tickFormatter={formatClock} stroke="#8fa3b8" />
+                    <XAxis
+                      dataKey="ts"
+                      type="number"
+                      scale="time"
+                      domain={[
+                        clock.getTime() - CHART_PAST_MS,
+                        clock.getTime() + CHART_FUTURE_MS,
+                      ]}
+                      ticks={buildTicks(clock.getTime())}
+                      tickFormatter={formatClock}
+                      stroke="#8fa3b8"
+                      allowDataOverflow
+                    />
                     <YAxis stroke="#8fa3b8" tickFormatter={(v) => `${v}`} />
                     <Tooltip
                       contentStyle={{
@@ -389,19 +456,32 @@ function App() {
                       }}
                       labelFormatter={(value) => formatClock(value)}
                     />
+                    <ReferenceLine
+                      x={clock.getTime()}
+                      stroke="#f8fafc"
+                      strokeDasharray="3 3"
+                      strokeOpacity={0.55}
+                    >
+                      <Label value="now" position="insideTopRight" fill="#f8fafc" fontSize={11} />
+                    </ReferenceLine>
                     <Line
                       type="monotone"
                       dataKey="actual"
                       stroke="#2aa3ff"
                       strokeWidth={2}
                       dot={false}
+                      connectNulls
+                      isAnimationActive={false}
                     />
                     <Line
                       type="monotone"
                       dataKey="predicted"
                       stroke="#ffb020"
                       strokeWidth={2}
+                      strokeDasharray="6 4"
                       dot={false}
+                      connectNulls
+                      isAnimationActive={false}
                     />
                   </LineChart>
                 </ResponsiveContainer>
