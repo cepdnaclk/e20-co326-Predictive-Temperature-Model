@@ -2,10 +2,10 @@
 **33. Predictive Temperature Model**
 
 ## Group Members
-* [Member 1 Name]
-* [Member 2 Name]
-* [Member 3 Name]
-* [Member 4 Name]
+* E/20/284 Sandalu Umayanga
+* E/20/094 Ishara Ekanayaka
+* E/20/055 Dineth Shakya
+* E/20/035 Chamuditha Nawarathna
 
 ## Project Description
 This project implements an **Edge AI Predictive Temperature System** designed for industrial IoT monitoring. The core objective is to analyze and forecast time-series temperature data to proactively identify potential overheating events.
