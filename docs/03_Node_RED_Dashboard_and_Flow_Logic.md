@@ -33,7 +33,7 @@ Contains threshold slider and operational context text.
 
 ### 3.1 Telemetry input node
 
-- Topic subscription: sensors/+/project33/data
+- Topic subscription: sensors/+/project33/+/data
 - Datatype: parsed JSON
 - Fan-out targets:
   - Format Temp Series
@@ -44,7 +44,7 @@ Contains threshold slider and operational context text.
 
 ### 3.2 Alerts input node
 
-- Topic subscription: alerts/+/project33/status
+- Topic subscription: alerts/+/project33/+/status
 - Datatype: parsed JSON
 - Fan-out targets:
   - Status Display
@@ -71,8 +71,8 @@ Contains threshold slider and operational context text.
 
 Transforms incoming telemetry into individual chart points:
 
-- Emits topic Actual when actual value exists using sample timestamp.
-- Emits topic Predicted when predicted value is numeric using predicted_for timestamp.
+- Emits topic "device_id Actual" when actual value exists using sample timestamp.
+- Emits topic "device_id Predicted" when predicted value is numeric using predicted_for timestamp.
 
 Reason:
 
@@ -102,8 +102,8 @@ Computes and routes multi-output KPI stream:
 
 Internal state:
 
-- Uses Node-RED function context to persist anomalyCount.
-- Uses Node-RED function context to keep pending forecast points for lag validation matching.
+- Uses Node-RED function context to persist anomaly counts per device.
+- Uses Node-RED function context to keep pending forecast points per device for lag validation matching.
 
 ### 4.5 Real Temperature Status
 

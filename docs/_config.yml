@@ -1,9 +1,9 @@
 # This theme is based on https://github.com/jekyll/minima
 # Please refer above link to know the available configurations
 
-title: ""
+title: "Predictive Temperature Model"
 remote_theme: cepdnaclk/eYY-project-theme
-description: ""
+description: "Edge AI predictive temperature monitoring with MQTT, Node-RED, and Python."
 markdown: kramdown
 
 kramdown:

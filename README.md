@@ -13,7 +13,7 @@ This project implements an **Edge AI Predictive Temperature System** designed fo
 The system is fully containerized using Docker and follows a decoupled microservices architecture centered around an MQTT message broker.
 
 ## AI and Predictive Model
-The intelligence of this project resides in the `python/edge_ai.py` service. It uses a machine learning pipeline to deliver reliable forecasts.
+The intelligence of this project resides in the `python/main.py` entrypoint and its supporting modules. It uses a machine learning pipeline to deliver reliable forecasts.
 
 **1. Data Preprocessing:**
 To ensure forecast stability, the raw sensor data undergoes two preprocessing steps:
@@ -21,9 +21,9 @@ To ensure forecast stability, the raw sensor data undergoes two preprocessing st
 *   **Data Smoothing:** **Exponential Smoothing** is applied to the cleaned data to reduce random noise and help the model focus on the primary trend.
 
 **2. Predictive Model:**
-*   **Algorithm:** The system uses **Linear Regression** (`scikit-learn`) to model the temperature trend.
-*   **Training:** The model is continuously retrained on a sliding window of the most recent data points.
-*   **Forecasting:** It extrapolates the learned trend to predict the temperature at a future point in time (defined by `PREDICTION_HORIZON_SEC`). It also calculates the trend's slope to classify it as "rising," "falling," or "stable."
+*   **Algorithm:** The system uses an **Echo State Network (ESN)** style reservoir forecaster to model the temperature trend.
+*   **Training:** The readout layer is updated continuously as new samples arrive, using a short rolling history.
+*   **Forecasting:** It predicts the temperature at a future point in time (defined by `PREDICTION_HORIZON_SEC`) and calculates the trend slope to classify it as "rising," "falling," or "stable."
 
 **3. Predictive Alerting:**
 The primary goal of the AI is to enable proactive alerts. If the forecasted temperature exceeds a configurable safety threshold, the system publishes a **"CRITICAL"** alert. This allows for intervention *before* an issue occurs, moving from reactive to predictive monitoring.
@@ -65,9 +65,11 @@ Ensure you have **Docker** and **Docker Compose** installed on your system.
 ## MQTT Topics Used
 | Topic | Payload Description |
 |-------|---------------------|
-| `sensors/group_33/project33/data` | JSON containing `timestamp`, `actual_temp`, `predicted_temp`, and `is_anomaly`. |
-| `alerts/group_33/project33/status` | JSON containing `status` (NORMAL/CRITICAL), `message`, and `predicted_val`. |
+| `sensors/group_33/project33/device_01/data` | JSON containing `device_id`, `timestamp`, `actual_temp`, `predicted_temp`, and `is_anomaly`. |
+| `alerts/group_33/project33/device_01/status` | JSON containing `device_id`, `status` (NORMAL/CRITICAL), `message`, and `predicted_val`. |
 | `storage/group_33/project33/export` | Topic to command the telemetry-store to export data to a CSV file. |
+
+**Multi-device simulation:** Set `DEVICE_COUNT` to the number of simulated edge devices (default 1). Device IDs use `DEVICE_ID_PREFIX` and `DEVICE_ID_PAD` (e.g., `device_01`).
 
 ## Future Improvements & Additional Edge Services
 The architecture can be extended with more specialized services:

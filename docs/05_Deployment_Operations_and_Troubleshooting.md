@@ -55,8 +55,8 @@ Expected:
 
 Use broker-side subscription checks:
 
-- sensors/group_33/project33/data receives periodic messages
-- alerts/group_33/project33/status receives NORMAL or CRITICAL after warmup
+- sensors/group_33/project33/device_01/data receives periodic messages
+- alerts/group_33/project33/device_01/status receives NORMAL or CRITICAL after warmup
 - storage/group_33/project33/health receives row_count and last_write updates
 
 ### 3.4 Control path level
@@ -189,7 +189,8 @@ Current forecast stabilization defaults in compose:
 
 - WINDOW_SIZE=20
 - PREDICTION_HORIZON_SEC=60
-- AVG_SAMPLE_INTERVAL_SEC=3.5
+- SAMPLE_INTERVAL_MIN_SEC=2.5
+- SAMPLE_INTERVAL_MAX_SEC=4.5
 - FORECAST_SMOOTHING_ALPHA=0.25
 - OUTLIER_MAD_SCALE=3.0
 - MAX_FORECAST_SLOPE_PER_STEP=0.12

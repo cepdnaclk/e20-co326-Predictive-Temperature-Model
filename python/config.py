@@ -10,15 +10,18 @@ import os
 
 # ── Identity ──────────────────────────────────────────────────────────────────
 GROUP_ID = os.getenv("GROUP_ID", "group_33")
+DEVICE_COUNT = int(os.getenv("DEVICE_COUNT", "1"))
+DEVICE_ID_PREFIX = os.getenv("DEVICE_ID_PREFIX", "device_")
+DEVICE_ID_PAD = int(os.getenv("DEVICE_ID_PAD", "2"))
 
 # ── MQTT ─────────────────────────────────────────────────────────────────────
 MQTT_BROKER = os.getenv("MQTT_BROKER", "mqtt")
 MQTT_PORT    = int(os.getenv("MQTT_PORT", "1883"))
 
 # Topic templates — group ID injected at runtime
-DATA_TOPIC    = f"sensors/{GROUP_ID}/project33/data"
-ALERT_TOPIC   = f"alerts/{GROUP_ID}/project33/status"
-CONTROL_TOPIC = f"controls/{GROUP_ID}/project33/threshold"
+DATA_TOPIC_TEMPLATE  = f"sensors/{GROUP_ID}/project33/{{device_id}}/data"
+ALERT_TOPIC_TEMPLATE = f"alerts/{GROUP_ID}/project33/{{device_id}}/status"
+CONTROL_TOPIC        = f"controls/{GROUP_ID}/project33/threshold"
 
 # ── Prediction ────────────────────────────────────────────────────────────────
 WINDOW_SIZE              = int(os.getenv("WINDOW_SIZE", "30"))

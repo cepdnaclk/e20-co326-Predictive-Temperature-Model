@@ -3,49 +3,45 @@ layout: home
 permalink: index.html
 
 # Please update this with your repository name and title
-repository-name: eYY-XXX-project-template
-title:
+repository-name: e20-co326-Predictive-Temperature-Model
+title: Predictive Temperature Model
 ---
-
 [comment]: # "This is the standard layout for the project, but you can clean this and use your own template"
 
-# Project Title
-
----
-
-<!-- 
-This is a sample image, to show how to add images to your page. To learn more options, please refer [this](https://projects.ce.pdn.ac.lk/docs/faq/how-to-add-an-image/)
-
-![Sample Image](./images/sample.png)
- -->
+# Predictive Temperature Model
 
 ## Team
--  eNumber, Name, [email](mailto:name@email.com)
--  eNumber, Name, [email](mailto:name@email.com)
--  eNumber, Name, [email](mailto:name@email.com)
+- Group 33
+- (Add member names and emails)
 
-## Table of Contents
-1. [Introduction](#introduction)
-2. [Other Sub Topics](#other-sub-topics)
-3. [Links](#links)
+## Overview
+This project implements an Edge AI predictive temperature monitoring system for industrial IoT. It simulates temperature telemetry, forecasts near-future temperatures, and raises alerts before an overheating event happens. The system is fully containerized and communicates over MQTT.
 
----
+## System Architecture
+- MQTT broker (Mosquitto) for message transport
+- Node-RED for dashboard and flow orchestration
+- Python edge service for simulation, preprocessing, and forecasting
+- Telemetry store for persisting data and CSV export
 
-## Introduction
+## Data Flow
+Python (Sim + AI) -> MQTT Broker -> Node-RED -> Dashboard UI
+Python (Sim + AI) -> MQTT Broker -> Telemetry Store -> SQLite/CSV
 
- description of the real world problem and solution, impact
+## MQTT Topics
+- sensors/group_33/project33/device_01/data
+- alerts/group_33/project33/device_01/status
+- controls/group_33/project33/threshold
+- storage/group_33/project33/export
+- storage/group_33/project33/export/result
 
-## Other Sub Topics
-
-.....
+## Multi-device Simulation
+Set `DEVICE_COUNT` to the number of simulated edge devices (default 1). Device IDs use `DEVICE_ID_PREFIX` and `DEVICE_ID_PAD` (e.g., `device_01`).
 
 ## Links
-
 - [Project Repository](https://github.com/cepdnaclk/{{ page.repository-name }}){:target="_blank"}
 - [Project Page](https://cepdnaclk.github.io/{{ page.repository-name}}){:target="_blank"}
 - [Department of Computer Engineering](http://www.ce.pdn.ac.lk/)
 - [University of Peradeniya](https://eng.pdn.ac.lk/)
-
 
 [//]: # (Please refer this to learn more about Markdown syntax)
 [//]: # (https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet)

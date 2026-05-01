@@ -43,7 +43,7 @@ Defined in docker-compose.yml:
 
 - Service: python-edge
   - Build context: python/
-  - Environment variables: MQTT_BROKER, PREDICTION_HORIZON_SEC, AVG_SAMPLE_INTERVAL_SEC, WINDOW_SIZE, FORECAST_SMOOTHING_ALPHA, OUTLIER_MAD_SCALE, MAX_FORECAST_SLOPE_PER_STEP, FORECAST_VOLATILITY_MULT, FORECAST_MIN_DELTA_C, FORECAST_MAX_DELTA_C
+  - Environment variables: MQTT_BROKER, DEVICE_COUNT, DEVICE_ID_PREFIX, DEVICE_ID_PAD, PREDICTION_HORIZON_SEC, SAMPLE_INTERVAL_MIN_SEC, SAMPLE_INTERVAL_MAX_SEC, WINDOW_SIZE, FORECAST_SMOOTHING_ALPHA, OUTLIER_MAD_SCALE, MAX_FORECAST_SLOPE_PER_STEP, FORECAST_VOLATILITY_MULT, FORECAST_MIN_DELTA_C, FORECAST_MAX_DELTA_C
   - Depends on mqtt
 
 - Service: telemetry-store
@@ -59,13 +59,13 @@ Defined in docker-compose.yml:
 1. Python generates one synthetic sample.
 2. Python updates its sliding window.
 3. Python predicts about 60 seconds ahead using stabilized linear extrapolation when enough history is available.
-4. Python publishes telemetry JSON to sensors/group_33/project33/data.
+4. Python publishes telemetry JSON to sensors/group_33/project33/device_01/data.
 5. Node-RED receives telemetry and fan-outs to chart, gauges, KPI logic, and real-temperature status logic.
 
 ### 4.2 Alert flow
 
 1. Python compares predicted value with active threshold.
-2. Python publishes status to alerts/group_33/project33/status.
+2. Python publishes status to alerts/group_33/project33/device_01/status.
 3. Node-RED receives status and updates predicted operational status text.
 4. For CRITICAL, Node-RED emits a toast notification.
 
@@ -81,7 +81,7 @@ Defined in docker-compose.yml:
 
 ### 4.6 Persistence flow
 
-1. Telemetry Store subscribes to sensors/group_33/project33/data.
+1. Telemetry Store subscribes to sensors/group_33/project33/+/data.
 2. Service writes predicted and actual values to SQLite table telemetry.
 3. Service publishes row count and last-write info to storage/group_33/project33/health.
 
@@ -127,9 +127,9 @@ sequenceDiagram
 
     loop every 2-5 seconds
       PY->>PY: simulate + update window + smooth + robust fit + horizon predict
-        PY->>MQ: publish telemetry (sensors/.../data)
+        PY->>MQ: publish telemetry (sensors/.../device_01/data)
         alt prediction exists
-            PY->>MQ: publish status (alerts/.../status)
+            PY->>MQ: publish status (alerts/.../device_01/status)
         end
         MQ->>NR: telemetry
       NR->>NR: transform for chart/gauges/KPIs/real-status/horizon-label

@@ -34,8 +34,12 @@ services:
       - mqtt
     environment:
       - MQTT_BROKER=mqtt
+      - DEVICE_COUNT=5
+      - DEVICE_ID_PREFIX=device_
+      - DEVICE_ID_PAD=2
       - PREDICTION_HORIZON_SEC=60
-      - AVG_SAMPLE_INTERVAL_SEC=3.5
+      - SAMPLE_INTERVAL_MIN_SEC=2.5
+      - SAMPLE_INTERVAL_MAX_SEC=4.5
       - WINDOW_SIZE=20
       - FORECAST_SMOOTHING_ALPHA=0.25
       - OUTLIER_MAD_SCALE=3.0
@@ -54,7 +58,7 @@ services:
     environment:
       - MQTT_BROKER=mqtt
       - MQTT_PORT=1883
-      - TELEMETRY_TOPIC=sensors/+/project33/data
+      - TELEMETRY_TOPIC=sensors/+/project33/+/data
       - HEALTH_TOPIC=storage/group_33/project33/health
       - EXPORT_CMD_TOPIC=storage/group_33/project33/export
       - EXPORT_RESULT_TOPIC=storage/group_33/project33/export/result
@@ -67,5 +71,4 @@ services:
 volumes:
   mosquitto_data:
   mosquitto_log:
-  node_red_data:
   telemetry_data:

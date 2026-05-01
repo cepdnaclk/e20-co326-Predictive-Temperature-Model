@@ -2,7 +2,7 @@
 
 ## 1. Purpose of the Service
 
-File: python/edge_ai.py
+File: python/main.py
 
 The Edge AI service is responsible for:
 
@@ -19,13 +19,17 @@ Key constants and environment values:
 - GROUP_ID: group_33
 - MQTT_BROKER: from environment, default mqtt
 - MQTT_PORT: 1883
-- DATA_TOPIC: sensors/group_33/project33/data
-- ALERT_TOPIC: alerts/group_33/project33/status
+- DATA_TOPIC_TEMPLATE: sensors/group_33/project33/{device_id}/data
+- ALERT_TOPIC_TEMPLATE: alerts/group_33/project33/{device_id}/status
 - CONTROL_TOPIC: controls/group_33/project33/threshold
+- DEVICE_COUNT: configurable, default 1
+- DEVICE_ID_PREFIX: configurable, default device_
+- DEVICE_ID_PAD: configurable, default 2
 - WINDOW_SIZE: configurable, default 20
 - ALERT_THRESHOLD: from environment, default 35.0
 - PREDICTION_HORIZON_SEC: configurable, default 60
-- AVG_SAMPLE_INTERVAL_SEC: configurable, default 3.5
+- SAMPLE_INTERVAL_MIN_SEC: configurable, default 2.0
+- SAMPLE_INTERVAL_MAX_SEC: configurable, default 5.0
 - FORECAST_SMOOTHING_ALPHA: configurable, default 0.25
 - OUTLIER_MAD_SCALE: configurable, default 3.0
 - MAX_FORECAST_SLOPE_PER_STEP: configurable, default 0.12

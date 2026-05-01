@@ -4,8 +4,8 @@
 
 Current topic namespace:
 
-- Telemetry: sensors/group_33/project33/data
-- Alerts: alerts/group_33/project33/status
+- Telemetry: sensors/group_33/project33/device_01/data
+- Alerts: alerts/group_33/project33/device_01/status
 - Controls: controls/group_33/project33/threshold
 - Storage health: storage/group_33/project33/health
 - Export command: storage/group_33/project33/export
@@ -13,8 +13,8 @@ Current topic namespace:
 
 Wildcard subscriptions used by Node-RED:
 
-- sensors/+/project33/data
-- alerts/+/project33/status
+- sensors/+/project33/+/data
+- alerts/+/project33/+/status
 - storage/group_33/project33/health
 - storage/group_33/project33/export/result
 
@@ -22,7 +22,7 @@ Wildcard subscriptions used by Node-RED:
 
 Topic:
 
-- sensors/group_33/project33/data
+- sensors/group_33/project33/device_01/data
 
 Producer:
 
@@ -35,6 +35,7 @@ Consumers:
 
 Payload schema:
 
+- device_id: string
 - timestamp: string, ISO 8601
 - actual_temp: number
 - predicted_temp: number or string Calculating...
@@ -49,6 +50,7 @@ Payload schema:
 Example:
 
 {
+  "device_id": "device_01",
   "timestamp": "2026-04-19T05:09:44.608310",
   "actual_temp": 34.58,
   "predicted_temp": 35.62,
@@ -65,7 +67,7 @@ Example:
 
 Topic:
 
-- alerts/group_33/project33/status
+- alerts/group_33/project33/device_01/status
 
 Producer:
 
@@ -77,6 +79,7 @@ Consumer:
 
 Payload schema:
 
+- device_id: string
 - timestamp: string, ISO 8601
 - status: string, NORMAL or CRITICAL
 - message: string
@@ -86,9 +89,10 @@ Payload schema:
 CRITICAL example:
 
 {
+  "device_id": "device_01",
   "timestamp": "2026-04-19T04:57:23.925533",
   "status": "CRITICAL",
-  "message": "Predicted temperature in 60s is 35.61C, exceeding threshold 35.0C!",
+  "message": "device_01: predicted temperature in 60s is 35.61C, exceeding threshold 35.0C!",
   "predicted_val": 35.61,
   "threshold": 35.0
 }
@@ -96,9 +100,10 @@ CRITICAL example:
 NORMAL example:
 
 {
+  "device_id": "device_01",
   "timestamp": "2026-04-19T04:57:29.781991",
   "status": "NORMAL",
-  "message": "System within safe range.",
+  "message": "device_01: system within safe range.",
   "predicted_val": 34.82,
   "threshold": 35.0
 }
@@ -149,6 +154,7 @@ Consumer:
 
 Payload schema:
 
+- device_id: string
 - timestamp: string, ISO 8601
 - row_count: integer
 - last_write: string, ISO 8601 or null
