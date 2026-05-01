@@ -7,6 +7,7 @@ Current topic namespace:
 - Telemetry: sensors/group_33/project33/device_01/data
 - Alerts: alerts/group_33/project33/device_01/status
 - Controls: controls/group_33/project33/threshold
+- Device health: health/group_33/project33/device_01/status
 - Storage health: storage/group_33/project33/health
 - Export command: storage/group_33/project33/export
 - Export result: storage/group_33/project33/export/result
@@ -15,6 +16,7 @@ Wildcard subscriptions used by Node-RED:
 
 - sensors/+/project33/+/data
 - alerts/+/project33/+/status
+- health/+/project33/+/status
 - storage/group_33/project33/health
 - storage/group_33/project33/export/result
 
@@ -169,7 +171,41 @@ Example:
   "last_write": "2026-04-19T07:51:15.900107"
 }
 
-## 6. Export Command and Result Contracts
+## 6. Device Health Contract
+
+Topic:
+
+- health/group_33/project33/device_01/status
+
+Producer:
+
+- Python Edge AI service
+
+Consumers:
+
+- Any dashboard or monitoring subscriber
+
+Payload schema:
+
+- device_id: string
+- timestamp: string, ISO 8601
+- status: string, STARTING | OK | STALE
+- last_seen: string, ISO 8601
+- uptime_sec: number
+- last_gap_sec: number or null
+
+Example:
+
+{
+  "device_id": "device_01",
+  "timestamp": "2026-05-01T10:12:40.123456",
+  "status": "OK",
+  "last_seen": "2026-05-01T10:12:36.881234",
+  "uptime_sec": 245.2,
+  "last_gap_sec": 3.242
+}
+
+## 7. Export Command and Result Contracts
 
 ### 6.1 Export command
 

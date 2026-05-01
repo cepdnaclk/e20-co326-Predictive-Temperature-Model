@@ -56,6 +56,8 @@ def main() -> None:
                 "step": 0,
                 "pending_predictions": [],
                 "error_history": [],
+                "start_ts": time.time(),
+                "last_publish_ts": None,
             }
         )
 
@@ -128,6 +130,31 @@ def main() -> None:
                         }
                     )
 
+                # ── Device health ─────────────────────────────────────────
+                last_publish_ts = device["last_publish_ts"]
+                if last_publish_ts is None:
+                    health_status = "STARTING"
+                    last_gap_sec = None
+                    last_seen_dt = now
+                else:
+                    last_gap_sec = round(now_ts - last_publish_ts, 3)
+                    health_status = (
+                        "OK"
+                        if last_gap_sec <= config.HEALTH_STALE_THRESHOLD_SEC
+                        else "STALE"
+                    )
+                    last_seen_dt = datetime.datetime.fromtimestamp(last_publish_ts)
+
+                health_payload = payloads.build_health_payload(
+                    device_id=device_id,
+                    timestamp=now,
+                    status=health_status,
+                    last_seen=last_seen_dt,
+                    uptime_sec=round(now_ts - device["start_ts"], 1),
+                    last_gap_sec=last_gap_sec,
+                )
+                mqtt_client.publish_health(client, health_payload, device_id)
+
                 # ── Alert check (predicted value vs threshold) ────────────────
                 if predicted_temp is not None:
                     if predicted_temp > threshold:
@@ -148,6 +175,8 @@ def main() -> None:
                             alert_threshold  = threshold,
                         )
                         mqtt_client.publish_alert(client, normal, device_id)
+
+                    device["last_publish_ts"] = now_ts
 
                 device["step"] += 1
 

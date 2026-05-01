@@ -22,6 +22,7 @@ MQTT_PORT    = int(os.getenv("MQTT_PORT", "1883"))
 DATA_TOPIC_TEMPLATE  = f"sensors/{GROUP_ID}/project33/{{device_id}}/data"
 ALERT_TOPIC_TEMPLATE = f"alerts/{GROUP_ID}/project33/{{device_id}}/status"
 CONTROL_TOPIC        = f"controls/{GROUP_ID}/project33/threshold"
+HEALTH_TOPIC_TEMPLATE = f"health/{GROUP_ID}/project33/{{device_id}}/status"
 
 # ── Prediction ────────────────────────────────────────────────────────────────
 WINDOW_SIZE              = int(os.getenv("WINDOW_SIZE", "30"))
@@ -45,3 +46,6 @@ TREND_SLOPE_THRESHOLD_C_PER_SEC = float(os.getenv("TREND_SLOPE_THRESHOLD_C_PER_S
 # ── Sampling ──────────────────────────────────────────────────────────────────
 SAMPLE_INTERVAL_MIN_SEC = float(os.getenv("SAMPLE_INTERVAL_MIN_SEC", "2.0"))
 SAMPLE_INTERVAL_MAX_SEC = float(os.getenv("SAMPLE_INTERVAL_MAX_SEC", "5.0"))
+
+# ── Health ───────────────────────────────────────────────────────────────────
+HEALTH_STALE_THRESHOLD_SEC = float(os.getenv("HEALTH_STALE_THRESHOLD_SEC", "12.0"))

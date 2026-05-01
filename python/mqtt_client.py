@@ -98,3 +98,9 @@ def publish_alert(client: mqtt.Client, payload: dict, device_id: str) -> None:
     """Publish an alert / status payload to the device alert topic."""
     topic = _format_topic(config.ALERT_TOPIC_TEMPLATE, device_id)
     client.publish(topic, json.dumps(payload))
+
+
+def publish_health(client: mqtt.Client, payload: dict, device_id: str) -> None:
+    """Publish a device health payload."""
+    topic = _format_topic(config.HEALTH_TOPIC_TEMPLATE, device_id)
+    client.publish(topic, json.dumps(payload))

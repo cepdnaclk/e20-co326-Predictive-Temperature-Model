@@ -95,3 +95,25 @@ def build_normal_payload(
         "predicted_val": predicted_temp,
         "threshold":     alert_threshold,
     }
+
+
+def build_health_payload(
+    *,
+    device_id: str,
+    timestamp: datetime.datetime,
+    status: str,
+    last_seen: datetime.datetime,
+    uptime_sec: float,
+    last_gap_sec: float | None,
+) -> dict:
+    """
+    Health payload published periodically for each device.
+    """
+    return {
+        "device_id": device_id,
+        "timestamp": timestamp.isoformat(),
+        "status": status,
+        "last_seen": last_seen.isoformat(),
+        "uptime_sec": uptime_sec,
+        "last_gap_sec": last_gap_sec,
+    }
