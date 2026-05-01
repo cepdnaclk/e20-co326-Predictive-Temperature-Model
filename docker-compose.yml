@@ -77,7 +77,7 @@ services:
     build:
       context: ./web-ui
       args:
-        VITE_MQTT_WS_URL: ws://localhost:19001
+        VITE_MQTT_WS_URL: ws://localhost:9001
         VITE_EXPORT_BASE_URL: http://localhost:8001
     container_name: web_ui
     depends_on:
