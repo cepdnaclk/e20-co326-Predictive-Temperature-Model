@@ -13,6 +13,8 @@ import './App.css'
 
 const DEVICE_IDS = ['device_01', 'device_02', 'device_03', 'device_04', 'device_05']
 const MAX_POINTS = 120
+const MIN_TEMP = 20
+const MAX_TEMP = 60
 
 const emptyDevice = () => ({
   actual: null,
@@ -33,12 +35,24 @@ const formatClock = (value) => {
   return date.toLocaleTimeString('en-GB', { hour12: false })
 }
 
+const formatDate = (value) => {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'N/A'
+  return date.toLocaleDateString('en-GB', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+  })
+}
+
 const getDeviceId = (topic, payload) => {
   if (payload?.device_id) return payload.device_id
   const parts = (topic || '').split('/')
   if (parts.length >= 4) return parts[3]
   return 'device'
 }
+
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max)
 
 function App() {
   const [activeDevice, setActiveDevice] = useState(DEVICE_IDS[0])
@@ -48,7 +62,13 @@ function App() {
   )
   const [alerts, setAlerts] = useState([])
   const [thresholdInput, setThresholdInput] = useState(35)
+  const [clock, setClock] = useState(() => new Date())
   const clientRef = useRef(null)
+
+  useEffect(() => {
+    const timer = setInterval(() => setClock(new Date()), 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     const url =
@@ -169,10 +189,33 @@ function App() {
           id,
           lastSeen: data.lastSeen,
           status: data.status,
+          actual: data.actual,
         }))
         .sort((a, b) => (b.lastSeen || '').localeCompare(a.lastSeen || '')),
     [devices]
   )
+
+  const onlineCount = useMemo(() => {
+    const now = Date.now()
+    return deviceRows.filter((row) => {
+      if (!row.lastSeen) return false
+      const ts = Date.parse(row.lastSeen)
+      return !Number.isNaN(ts) && now - ts < 120000
+    }).length
+  }, [deviceRows])
+
+  const criticalCount = useMemo(
+    () => deviceRows.filter((row) => row.status === 'CRITICAL').length,
+    [deviceRows]
+  )
+
+  const avgThreshold = useMemo(() => {
+    const values = Object.values(devices)
+      .map((item) => item.threshold)
+      .filter((value) => typeof value === 'number')
+    if (!values.length) return null
+    return values.reduce((sum, value) => sum + value, 0) / values.length
+  }, [devices])
 
   const handleThresholdApply = () => {
     if (!clientRef.current) return
@@ -185,21 +228,54 @@ function App() {
   return (
     <div className="app-shell">
       <header className="top-bar">
-        <div>
+        <div className="top-left">
           <p className="eyebrow">Industrial Edge Suite</p>
           <h1>Predictive Temperature Command Center</h1>
+          <p className="subhead">Plant Line A - Sector 3 | Live MQTT Telemetry</p>
         </div>
-        <div className={`connection-pill ${connection}`}>
-          <span className="dot" />
-          {connection.toUpperCase()}
+        <div className="top-right">
+          <div className="clock-stack">
+            <span>{formatDate(clock)}</span>
+            <strong>{formatClock(clock)}</strong>
+          </div>
+          <div className={`connection-pill ${connection}`}>
+            <span className="dot" />
+            {connection.toUpperCase()}
+          </div>
         </div>
       </header>
 
-      <section className="status-strip">
-        <div>
+      <section className="hero-strip">
+        <div className="hero-card">
+          <p className="label">Fleet Online</p>
+          <p className="value-xl">
+            {onlineCount}/{DEVICE_IDS.length}
+          </p>
+          <span className="hint">Last 2 minutes</span>
+        </div>
+        <div className="hero-card">
+          <p className="label">Critical Alerts</p>
+          <p className={`value-xl ${criticalCount ? 'critical' : 'normal'}`}>
+            {criticalCount}
+          </p>
+          <span className="hint">Active devices</span>
+        </div>
+        <div className="hero-card">
+          <p className="label">Avg Threshold</p>
+          <p className="value-xl">
+            {avgThreshold === null ? 'N/A' : avgThreshold.toFixed(1)}
+            <span className="unit">degC</span>
+          </p>
+          <span className="hint">Config baseline</span>
+        </div>
+        <div className="hero-card">
           <p className="label">Active Device</p>
           <p className="value-xl">{activeDevice}</p>
+          <span className="hint">Operator focus</span>
         </div>
+      </section>
+
+      <section className="status-strip">
         <div>
           <p className="label">Last Seen</p>
           <p className="value-xl">{formatClock(activeData.lastSeen)}</p>
@@ -217,11 +293,15 @@ function App() {
             <span className="unit">degC</span>
           </p>
         </div>
+        <div>
+          <p className="label">Recent Alerts</p>
+          <p className="value-xl">{alerts.length}</p>
+        </div>
       </section>
 
       <div className="layout">
         <aside className="device-rail">
-          <h2>Devices</h2>
+          <h2>Device Stack</h2>
           <div className="device-tabs">
             {DEVICE_IDS.map((id) => (
               <button
@@ -239,7 +319,7 @@ function App() {
           </div>
           <div className="control-panel">
             <h3>Threshold Control</h3>
-            <p className="muted">Applies to all devices</p>
+            <p className="muted">Broadcast to all devices</p>
             <div className="threshold-display">
               <span>Active</span>
               <strong>{activeData.threshold ?? 'N/A'} degC</strong>
@@ -385,6 +465,53 @@ function App() {
                     <span>{formatClock(row.lastSeen)}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            <div className="panel span-2 gauges-panel">
+              <div className="panel-header">
+                <h2>Device Gauges</h2>
+                <p className="muted">Live actual temperature per edge device</p>
+              </div>
+              <div className="gauge-grid">
+                {deviceRows.map((row) => {
+                  const actual = typeof row.actual === 'number' ? row.actual : null
+                  const normalized = actual === null
+                    ? 0
+                    : clamp((actual - MIN_TEMP) / (MAX_TEMP - MIN_TEMP), 0, 1)
+                  const needle = -90 + normalized * 180
+                  const fill = normalized * 180
+                  return (
+                    <div key={row.id} className="gauge-card">
+                      <div className="gauge-meta">
+                        <span className="mono">{row.id}</span>
+                        <span className={`badge ${row.status.toLowerCase()}`}>
+                          {row.status}
+                        </span>
+                      </div>
+                      <div className="gauge-wrap">
+                        <div
+                          className="gauge-dial"
+                          style={{
+                            '--fill-angle': `${fill}deg`,
+                            '--needle-angle': `${needle}deg`,
+                          }}
+                        >
+                          <span className="gauge-needle" />
+                          <span className="gauge-center" />
+                        </div>
+                      </div>
+                      <div className="gauge-readout">
+                        <span>{actual === null ? 'N/A' : actual.toFixed(1)}</span>
+                        <span className="unit">degC</span>
+                      </div>
+                      <div className="gauge-scale">
+                        <span>{MIN_TEMP}</span>
+                        <span>{MAX_TEMP}</span>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           </section>
