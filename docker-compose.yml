@@ -6,6 +6,7 @@ services:
     container_name: mqtt_broker
     ports:
       - "1883:1883"
+      - "9001:9001"
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
       - mosquitto_data:/mosquitto/data
@@ -66,6 +67,18 @@ services:
     volumes:
       - telemetry_data:/data
       - ./storage/exports:/data/exports
+    restart: always
+
+  web-ui:
+    build:
+      context: ./web-ui
+      args:
+        VITE_MQTT_WS_URL: ws://localhost:9001
+    container_name: web_ui
+    depends_on:
+      - mqtt
+    ports:
+      - "5173:5173"
     restart: always
 
 volumes:

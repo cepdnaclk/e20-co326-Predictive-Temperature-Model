@@ -29,15 +29,16 @@ To ensure forecast stability, the raw sensor data undergoes two preprocessing st
 The primary goal of the AI is to enable proactive alerts. If the forecasted temperature exceeds a configurable safety threshold, the system publishes a **"CRITICAL"** alert. This allows for intervention *before* an issue occurs, moving from reactive to predictive monitoring.
 
 ## System Architecture
-The system is composed of four main containerized services:
+The system is composed of five main containerized services:
 
 1.  **`mqtt` (Eclipse Mosquitto):** The central MQTT message broker that enables communication between all services.
-2.  **`node-red` (Node-RED):** Provides a low-code environment for creating the dashboard UI and managing data flow logic.
-3.  **`python-edge` (Python/scikit-learn):** The edge AI service that runs the temperature simulation, data preprocessing, and predictive modeling.
-4.  **`telemetry-store` (Python):** A service responsible for subscribing to telemetry topics and logging the data to a persistent database.
+2.  **`web-ui` (React):** The primary operator dashboard, connecting to MQTT over WebSockets.
+3.  **`node-red` (Node-RED):** Legacy dashboard and flow logic (kept for reference).
+4.  **`python-edge` (Python/scikit-learn):** The edge AI service that runs the temperature simulation, data preprocessing, and predictive modeling.
+5.  **`telemetry-store` (Python):** A service responsible for subscribing to telemetry topics and logging the data to a persistent database.
 
 **Data Flow:**
-`Python (Sim + AI) -> MQTT Broker -> Node-RED -> Dashboard UI`
+`Python (Sim + AI) -> MQTT Broker -> React Web UI (MQTT over WebSockets)`
 `Python (Sim + AI) -> MQTT Broker -> Telemetry Store -> Database`
 
 ## Potential Use Cases
@@ -57,10 +58,22 @@ Ensure you have **Docker** and **Docker Compose** installed on your system.
    docker-compose up --build
    ```
 3. **Access the Dashboard:**
-   * **Node-RED Editor:** [http://localhost:1880](http://localhost:1880)
-   * **Dashboard UI:** [http://localhost:1880/ui](http://localhost:1880/ui)
+   * **React UI:** [http://localhost:5173](http://localhost:5173)
+   * **Node-RED Editor (legacy):** [http://localhost:1880](http://localhost:1880)
 4. **Access the Broker (Optional):**
    * **MQTT Port:** `1883`
+   * **MQTT WebSocket Port:** `9001`
+
+### React UI (local dev)
+If you want to run the React UI outside Docker:
+
+```bash
+cd web-ui
+npm install
+npm run dev
+```
+
+The UI reads the MQTT WebSocket URL from `VITE_MQTT_WS_URL` (default `ws://localhost:9001`).
 
 ## MQTT Topics Used
 | Topic | Payload Description |

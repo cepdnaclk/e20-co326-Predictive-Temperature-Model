@@ -1,10 +1,10 @@
-# Node-RED Dashboard and Flow Logic
+# Node-RED Dashboard and Flow Logic (Legacy)
 
 ## 1. Purpose
 
 File: node-red/flows.json
 
-Node-RED provides:
+Node-RED provides (legacy):
 
 - Real-time dashboard visualization.
 - Transformation of telemetry for widget-compatible formats.
@@ -197,6 +197,8 @@ A global ui_template injects custom dashboard CSS and fonts:
 - Mobile and reduced-motion support.
 
 ## 7. Flow Safety Considerations
+
+Note: The primary operator UI is now the React web UI. Node-RED remains in the stack for reference and optional comparison, but it is no longer the main dashboard.
 
 - Numeric checks are performed before chart and gauge emission.
 - Warmup values are safely ignored by predicted gauge/chart branch.

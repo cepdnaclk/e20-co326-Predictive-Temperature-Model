@@ -11,8 +11,10 @@ docker compose up --build
 2. Access endpoints:
 
 - Node-RED editor: http://localhost:1880
-- Dashboard: http://localhost:1880/ui
+- React dashboard: http://localhost:5173
+- Node-RED dashboard (legacy): http://localhost:1880/ui
 - MQTT broker: localhost:1883
+- MQTT WebSockets: ws://localhost:9001
 
 To run detached:
 
@@ -21,6 +23,18 @@ docker compose up --build -d
 To stop:
 
 docker compose down
+
+## 1.1 React UI (local dev)
+
+If running the UI outside Docker:
+
+cd web-ui
+npm install
+npm run dev
+
+Environment variables:
+
+- VITE_MQTT_WS_URL (default ws://localhost:9001)
 
 ## 2. Service Startup Expectations
 
@@ -42,14 +56,16 @@ docker compose ps
 Expected:
 
 - mqtt_broker is Up
+- web_ui is Up
 - node_red_ui is Up and eventually healthy
 - python_edge_ai is Up
 - telemetry_store is Up
 
 ### 3.2 Endpoint level
 
-- GET / on 1880 should return 200
-- GET /ui should redirect or return dashboard page
+- GET / on 1880 should return 200 (legacy)
+- GET /ui should redirect or return dashboard page (legacy)
+- React UI should load at http://localhost:5173
 
 ### 3.3 Messaging level
 
@@ -68,7 +84,7 @@ Publish control test message to controls topic and confirm threshold changes in 
 ### 4.1 Daily startup
 
 1. Start compose.
-2. Open dashboard.
+2. Open React dashboard.
 3. Confirm gauges and charts are moving.
 4. Confirm both status lines are updating:
 	- Operational Status (Predicted)
@@ -77,7 +93,7 @@ Publish control test message to controls topic and confirm threshold changes in 
 
 ### 4.2 Runtime operation
 
-- Use threshold slider to tune alert sensitivity.
+- Use threshold slider in React UI to tune alert sensitivity.
 - Observe active threshold text, dual status behavior, and forecast validation error.
 - Use critical toast as immediate warning signal.
 - Use export button to create CSV snapshots and verify export result text.
@@ -89,7 +105,19 @@ Publish control test message to controls topic and confirm threshold changes in 
 
 ## 5. Troubleshooting Guide
 
-### Issue: Node-RED editor not reachable
+### Issue: React UI not reachable
+
+Checks:
+
+- docker compose ps
+- docker logs web_ui
+
+Actions:
+
+- Restart web-ui service.
+- Confirm port 5173 is free.
+
+### Issue: Node-RED editor not reachable (legacy)
 
 Checks:
 

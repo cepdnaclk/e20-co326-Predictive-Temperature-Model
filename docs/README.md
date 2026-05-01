@@ -19,13 +19,24 @@ This project implements an Edge AI predictive temperature monitoring system for 
 
 ## System Architecture
 - MQTT broker (Mosquitto) for message transport
-- Node-RED for dashboard and flow orchestration
+- React web UI for dashboard and operator control (MQTT over WebSockets)
+- Node-RED for legacy dashboard and flow orchestration
 - Python edge service for simulation, preprocessing, and forecasting
 - Telemetry store for persisting data and CSV export
 
 ## Data Flow
-Python (Sim + AI) -> MQTT Broker -> Node-RED -> Dashboard UI
+Python (Sim + AI) -> MQTT Broker -> React Web UI (MQTT over WebSockets)
 Python (Sim + AI) -> MQTT Broker -> Telemetry Store -> SQLite/CSV
+
+## React UI (local dev)
+```bash
+cd web-ui
+npm install
+npm run dev
+```
+
+Environment variable:
+- VITE_MQTT_WS_URL (default ws://localhost:9001)
 
 ## MQTT Topics
 - sensors/group_33/project33/device_01/data

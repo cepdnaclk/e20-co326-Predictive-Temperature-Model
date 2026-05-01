@@ -12,7 +12,7 @@ Primary objective:
 
 ## 2. High-Level Architecture
 
-The system consists of four runtime services connected through MQTT.
+The system consists of five runtime services connected through MQTT.
 
 1. Python Edge AI service
 Role: Simulates temperature, performs prediction, publishes telemetry and alerts.
@@ -20,10 +20,12 @@ Role: Simulates temperature, performs prediction, publishes telemetry and alerts
 2. Mosquitto broker
 Role: Message bus for telemetry, alerts, and control commands.
 
-3. Node-RED service
-Role: Subscribes to MQTT topics, transforms payloads, renders dashboard, and publishes control updates.
+3. React web UI
+Role: Operator dashboard connecting to MQTT over WebSockets for live telemetry and control.
 
-4. Telemetry Store service
+4. Node-RED service (legacy)
+Role: Reference dashboard and flow logic kept for comparison.
+5. Telemetry Store service
 Role: Subscribes to telemetry, writes SQLite records, serves query/export utilities, and publishes storage health/export results.
 
 ## 3. Container Topology
@@ -32,10 +34,15 @@ Defined in docker-compose.yml:
 
 - Service: mqtt
   - Image: eclipse-mosquitto:2.0
-  - Port: 1883
+  - Port: 1883 (MQTT), 9001 (MQTT WebSockets)
   - Volume: broker config, persistent data, log storage
 
-- Service: node-red
+- Service: web-ui
+  - Build context: web-ui/
+  - Port: 5173
+  - Depends on mqtt
+
+- Service: node-red (legacy)
   - Build context: node-red/
   - Port: 1880
   - Volume mount: node-red/flows.json to /data/flows.json
@@ -60,24 +67,23 @@ Defined in docker-compose.yml:
 2. Python updates its sliding window.
 3. Python predicts about 60 seconds ahead using stabilized linear extrapolation when enough history is available.
 4. Python publishes telemetry JSON to sensors/group_33/project33/device_01/data.
-5. Node-RED receives telemetry and fan-outs to chart, gauges, KPI logic, and real-temperature status logic.
+5. React UI receives telemetry over MQTT WebSockets and renders charts and KPIs.
 
 ### 4.2 Alert flow
 
 1. Python compares predicted value with active threshold.
 2. Python publishes status to alerts/group_33/project33/device_01/status.
-3. Node-RED receives status and updates predicted operational status text.
-4. For CRITICAL, Node-RED emits a toast notification.
+3. React UI receives status updates and displays alerts.
 
 ### 4.4 Real temperature status flow
 
-1. Node-RED computes operational status directly from actual_temp versus threshold from telemetry.
-2. Node-RED updates a dedicated real-temperature operational status label.
+1. React UI computes operational status directly from actual_temp versus threshold.
+2. React UI updates the operational status indicator.
 
 ### 4.5 Horizon indicator flow
 
 1. Python includes prediction_horizon_sec in telemetry.
-2. Node-RED displays this as a label such as 60 seconds ahead.
+2. React UI displays this as a label such as 60 seconds ahead.
 
 ### 4.6 Persistence flow
 
@@ -87,16 +93,16 @@ Defined in docker-compose.yml:
 
 ### 4.7 CSV export flow
 
-1. User clicks Export Last 60m CSV in Node-RED dashboard.
-2. Node-RED publishes command to storage/group_33/project33/export.
+1. Operator triggers export via MQTT (any client).
+2. MQTT publishes command to storage/group_33/project33/export.
 3. Telemetry Store runs export and writes CSV to /data/exports (mapped to project storage/exports).
 4. Telemetry Store publishes result payload to storage/group_33/project33/export/result.
 5. Node-RED displays export result text (path and row count).
 
 ### 4.3 Control flow
 
-1. User moves threshold slider in dashboard.
-2. Node-RED publishes control JSON to controls/group_33/project33/threshold.
+1. User adjusts threshold in React UI.
+2. React UI publishes control JSON to controls/group_33/project33/threshold.
 3. Python subscribed callback reads threshold and updates ALERT_THRESHOLD in memory.
 4. Subsequent alert decisions use the new threshold immediately.
 
@@ -119,8 +125,7 @@ For each loop iteration in Python:
 ```mermaid
 sequenceDiagram
     autonumber
-    participant UI as Node-RED Dashboard
-    participant NR as Node-RED Runtime
+    participant UI as React Web UI
     participant MQ as Mosquitto Broker
     participant PY as Python Edge AI
     participant ST as Telemetry Store
@@ -131,30 +136,28 @@ sequenceDiagram
         alt prediction exists
             PY->>MQ: publish status (alerts/.../device_01/status)
         end
-        MQ->>NR: telemetry
-      NR->>NR: transform for chart/gauges/KPIs/real-status/horizon-label
-        NR->>UI: render widgets
+        MQ->>UI: telemetry
+      UI->>UI: render charts and KPIs
         MQ->>ST: telemetry
         ST->>ST: insert SQLite row
         ST->>MQ: publish storage health
-        MQ->>NR: storage health
-        NR->>UI: update row count / last write
-        MQ->>NR: status
-      NR->>UI: predicted status update and optional toast
+        MQ->>UI: storage health
+        UI->>UI: update row count / last write
+        MQ->>UI: status
+      UI->>UI: predicted status update and alert feed
     end
 
-    UI->>NR: slider change
-    NR->>MQ: publish threshold control
+    UI->>UI: slider change
+    UI->>MQ: publish threshold control
     MQ->>PY: control message
     PY->>PY: update ALERT_THRESHOLD
 
-    UI->>NR: export button click
-    NR->>MQ: publish export command
+    UI->>MQ: publish export command
     MQ->>ST: export command
     ST->>ST: create CSV under /data/exports
     ST->>MQ: publish export result
-    MQ->>NR: export result
-    NR->>UI: show export path and row count
+    MQ->>UI: export result
+    UI->>UI: show export path and row count
 ```
 
 ## 7. Reliability and Failure Handling

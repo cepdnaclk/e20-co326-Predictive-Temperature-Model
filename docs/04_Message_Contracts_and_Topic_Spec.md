@@ -120,7 +120,7 @@ Topic:
 
 Producer:
 
-- Node-RED control slider pipeline
+- React web UI threshold control
 
 Consumer:
 
