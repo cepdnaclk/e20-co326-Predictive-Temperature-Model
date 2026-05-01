@@ -1,9 +1,12 @@
-import datetime
 import csv
+import datetime
 import json
 import os
 import sqlite3
 import time
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from threading import Thread
 
 import paho.mqtt.client as mqtt
 
@@ -16,6 +19,8 @@ EXPORT_CMD_TOPIC = os.getenv("EXPORT_CMD_TOPIC", "storage/group_33/project33/exp
 EXPORT_RESULT_TOPIC = os.getenv(
     "EXPORT_RESULT_TOPIC", "storage/group_33/project33/export/result"
 )
+EXPORT_DIR = os.getenv("EXPORT_DIR", "/data/exports")
+EXPORT_HTTP_PORT = int(os.getenv("EXPORT_HTTP_PORT", "8001"))
 
 
 def to_float_or_none(value):
@@ -90,7 +95,7 @@ def insert_telemetry(conn, topic, payload_obj):
             forecast_mae,
             raw_payload,
             ingested_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             topic,
@@ -127,23 +132,38 @@ def publish_storage_health(client, conn):
     client.publish(HEALTH_TOPIC, json.dumps(payload))
 
 
-def export_recent_csv(conn, minutes, export_dir="/data/exports"):
+def export_recent_csv(conn, minutes, device_id=None, export_dir=EXPORT_DIR):
     os.makedirs(export_dir, exist_ok=True)
     ts = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    out_path = os.path.join(export_dir, f"telemetry_{ts}.csv")
+    suffix = f"_{device_id}" if device_id else "_all"
+    out_path = os.path.join(export_dir, f"telemetry_{ts}{suffix}.csv")
 
     cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT source_timestamp, actual_temp, predicted_temp, predicted_for,
-               prediction_horizon_sec, threshold, trend, trend_slope,
-             is_anomaly, window_avg, forecast_error, forecast_mae, ingested_at
-        FROM telemetry
-        WHERE ingested_at >= datetime('now', ?)
-        ORDER BY id ASC
-        """,
-        (f"-{minutes} minutes",),
-    )
+    if device_id:
+        cur.execute(
+            """
+            SELECT source_timestamp, actual_temp, predicted_temp, predicted_for,
+                   prediction_horizon_sec, threshold, trend, trend_slope,
+                 is_anomaly, window_avg, forecast_error, forecast_mae, ingested_at
+                        FROM telemetry
+                        WHERE datetime(replace(replace(ingested_at, 'T', ' '), 'Z', '')) >= datetime('now', ?)
+              AND topic LIKE ?
+            ORDER BY id ASC
+            """,
+            (f"-{minutes} minutes", f"%/{device_id}/data"),
+        )
+    else:
+        cur.execute(
+            """
+            SELECT source_timestamp, actual_temp, predicted_temp, predicted_for,
+                   prediction_horizon_sec, threshold, trend, trend_slope,
+                 is_anomaly, window_avg, forecast_error, forecast_mae, ingested_at
+            FROM telemetry
+                        WHERE datetime(replace(replace(ingested_at, 'T', ' '), 'Z', '')) >= datetime('now', ?)
+            ORDER BY id ASC
+            """,
+            (f"-{minutes} minutes",),
+        )
     rows = cur.fetchall()
 
     headers = [
@@ -170,10 +190,21 @@ def export_recent_csv(conn, minutes, export_dir="/data/exports"):
     return out_path, len(rows)
 
 
-def publish_export_result(client, status, minutes, csv_path=None, row_count=0, error=None):
+def start_export_server():
+    handler = partial(SimpleHTTPRequestHandler, directory=EXPORT_DIR)
+    httpd = ThreadingHTTPServer(("", EXPORT_HTTP_PORT), handler)
+    thread = Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    return httpd
+
+
+def publish_export_result(
+    client, status, minutes, device_id=None, csv_path=None, row_count=0, error=None
+):
     payload = {
         "status": status,
         "minutes": minutes,
+        "device_id": device_id,
         "csv_path": csv_path,
         "row_count": row_count,
         "error": error,
@@ -217,11 +248,15 @@ def on_message(client, userdata, msg):
         try:
             minutes = int(payload_obj.get("minutes", 60))
             minutes = max(1, min(minutes, 1440))
-            csv_path, row_count = export_recent_csv(conn, minutes)
+            device_id = payload_obj.get("device_id")
+            if device_id:
+                device_id = str(device_id).strip()
+            csv_path, row_count = export_recent_csv(conn, minutes, device_id)
             publish_export_result(
                 client,
                 status="OK",
                 minutes=minutes,
+                device_id=device_id,
                 csv_path=csv_path,
                 row_count=row_count,
             )
@@ -231,6 +266,7 @@ def on_message(client, userdata, msg):
                 client,
                 status="ERROR",
                 minutes=payload_obj.get("minutes", 60),
+                device_id=payload_obj.get("device_id"),
                 error=str(exc),
             )
             print(f"Failed to export CSV: {exc}")
@@ -254,6 +290,8 @@ def main():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     ensure_db_schema(conn)
+
+    httpd = start_export_server()
 
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, userdata={"conn": conn})
     client.on_connect = on_connect
@@ -279,6 +317,7 @@ def main():
         client.loop_stop()
         client.disconnect()
         conn.close()
+        httpd.shutdown()
 
 
 if __name__ == "__main__":

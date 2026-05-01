@@ -64,16 +64,21 @@ services:
       - EXPORT_CMD_TOPIC=storage/group_33/project33/export
       - EXPORT_RESULT_TOPIC=storage/group_33/project33/export/result
       - DB_PATH=/data/telemetry.db
+      - EXPORT_DIR=/data/exports
+      - EXPORT_HTTP_PORT=8001
     volumes:
       - telemetry_data:/data
       - ./storage/exports:/data/exports
+    ports:
+      - "8001:8001"
     restart: always
 
   web-ui:
     build:
       context: ./web-ui
       args:
-        VITE_MQTT_WS_URL: ws://localhost:9001
+        VITE_MQTT_WS_URL: ws://localhost:19001
+        VITE_EXPORT_BASE_URL: http://localhost:8001
     container_name: web_ui
     depends_on:
       - mqtt

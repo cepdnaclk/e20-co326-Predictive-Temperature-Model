@@ -298,6 +298,77 @@
   color: var(--muted);
 }
 
+.export-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.export-row input {
+  width: 110px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(8, 14, 20, 0.7);
+  color: var(--ink);
+  font-family: inherit;
+}
+
+.export-row select {
+  width: 140px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(8, 14, 20, 0.7);
+  color: var(--ink);
+  font-family: inherit;
+}
+
+.export-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.export-quick button {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(42, 163, 255, 0.4);
+  background: rgba(10, 18, 26, 0.9);
+  color: var(--ink);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.export-status {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.download-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(42, 163, 255, 0.5);
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 11px;
+  text-decoration: none;
+  background: rgba(10, 18, 26, 0.9);
+  width: fit-content;
+}
+
 .apply-btn {
   padding: 10px 12px;
   border-radius: 10px;

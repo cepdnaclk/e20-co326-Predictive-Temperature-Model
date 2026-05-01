@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import mqtt from 'mqtt'
+import { useEffect, useMemo, useRef, useState } from "react";
+import mqtt from "mqtt";
 import {
   CartesianGrid,
   Label,
@@ -10,130 +10,149 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-} from 'recharts'
-import './App.css'
+} from "recharts";
+import "./App.css";
 
-const DEVICE_IDS = ['device_01', 'device_02', 'device_03', 'device_04', 'device_05']
-const MAX_POINTS = 120
-const MIN_TEMP = 20
-const MAX_TEMP = 60
+const DEVICE_IDS = [
+  "device_01",
+  "device_02",
+  "device_03",
+  "device_04",
+  "device_05",
+];
+const MAX_POINTS = 120;
+const MIN_TEMP = 20;
+const MAX_TEMP = 60;
 
 // Chart time window — axis is a rolling window anchored to the current
 // wall-clock time. Past: CHART_PAST_MS behind "now"; future: CHART_FUTURE_MS
 // ahead of "now" to give the prediction line room on the right side.
-const CHART_PAST_MS = 2 * 60 * 1000      // 2 minutes of history
-const CHART_FUTURE_MS = 60 * 1000        // matches default PREDICTION_HORIZON_SEC
+const CHART_PAST_MS = 2 * 60 * 1000; // 2 minutes of history
+const CHART_FUTURE_MS = 60 * 1000; // matches default PREDICTION_HORIZON_SEC
 
 const emptyDevice = () => ({
   actual: null,
   predicted: null,
-  trend: 'warming_up',
+  trend: "warming_up",
   trendSlope: null,
   threshold: null,
-  status: 'NORMAL',
-  statusMessage: 'Waiting for data...',
+  status: "NORMAL",
+  statusMessage: "Waiting for data...",
   lastSeen: null,
   series: [],
-})
+});
 
 const formatClock = (value) => {
-  if (!value) return 'N/A'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'N/A'
-  return date.toLocaleTimeString('en-GB', { hour12: false })
-}
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleTimeString("en-GB", { hour12: false });
+};
 
 const formatDate = (value) => {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'N/A'
-  return date.toLocaleDateString('en-GB', {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-  })
-}
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleDateString("en-GB", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  });
+};
 
 const getDeviceId = (topic, payload) => {
-  if (payload?.device_id) return payload.device_id
-  const parts = (topic || '').split('/')
-  if (parts.length >= 4) return parts[3]
-  return 'device'
-}
+  if (payload?.device_id) return payload.device_id;
+  const parts = (topic || "").split("/");
+  if (parts.length >= 4) return parts[3];
+  return "device";
+};
 
-const clamp = (value, min, max) => Math.min(Math.max(value, min), max)
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 // Evenly-spaced ticks across the rolling window. Anchored to "now" rounded
 // down to the nearest 30 s, so tick labels stay at nice round times instead
 // of jittering every second.
-const TICK_STEP_MS = 30 * 1000
+const TICK_STEP_MS = 30 * 1000;
 const buildTicks = (nowMs) => {
-  const start = nowMs - CHART_PAST_MS
-  const end = nowMs + CHART_FUTURE_MS
-  const firstTick = Math.ceil(start / TICK_STEP_MS) * TICK_STEP_MS
-  const ticks = []
+  const start = nowMs - CHART_PAST_MS;
+  const end = nowMs + CHART_FUTURE_MS;
+  const firstTick = Math.ceil(start / TICK_STEP_MS) * TICK_STEP_MS;
+  const ticks = [];
   for (let t = firstTick; t <= end; t += TICK_STEP_MS) {
-    ticks.push(t)
+    ticks.push(t);
   }
-  return ticks
-}
+  return ticks;
+};
 
 function App() {
-  const [activeDevice, setActiveDevice] = useState(DEVICE_IDS[0])
-  const [connection, setConnection] = useState('disconnected')
+  const [activeDevice, setActiveDevice] = useState(DEVICE_IDS[0]);
+  const [connection, setConnection] = useState("disconnected");
   const [devices, setDevices] = useState(() =>
-    DEVICE_IDS.reduce((acc, id) => ({ ...acc, [id]: emptyDevice() }), {})
-  )
-  const [alerts, setAlerts] = useState([])
-  const [thresholdInput, setThresholdInput] = useState(35)
-  const [clock, setClock] = useState(() => new Date())
-  const clientRef = useRef(null)
+    DEVICE_IDS.reduce((acc, id) => ({ ...acc, [id]: emptyDevice() }), {}),
+  );
+  const [alerts, setAlerts] = useState([]);
+  const [thresholdInput, setThresholdInput] = useState(35);
+  const [exportMinutes, setExportMinutes] = useState(60);
+  const [exportDevice, setExportDevice] = useState(DEVICE_IDS[0]);
+  const [exportResult, setExportResult] = useState(null);
+  const [clock, setClock] = useState(() => new Date());
+  const clientRef = useRef(null);
+
+  const exportBaseUrl =
+    import.meta.env.VITE_EXPORT_BASE_URL?.trim() || "http://localhost:8001";
+  const exportFilename = exportResult?.csvPath
+    ? exportResult.csvPath.split("/").pop()
+    : null;
+  const exportDownloadUrl = exportFilename
+    ? `${exportBaseUrl}/${exportFilename}`
+    : null;
 
   useEffect(() => {
-    const timer = setInterval(() => setClock(new Date()), 1000)
-    return () => clearInterval(timer)
-  }, [])
+    const timer = setInterval(() => setClock(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const url =
-      import.meta.env.VITE_MQTT_WS_URL?.trim() || 'ws://localhost:9001'
+      import.meta.env.VITE_MQTT_WS_URL?.trim() || "ws://localhost:9001";
     const client = mqtt.connect(url, {
       clientId: `web-ui-${Math.random().toString(16).slice(2, 10)}`,
       reconnectPeriod: 2000,
       connectTimeout: 5000,
       clean: true,
-    })
-    clientRef.current = client
+    });
+    clientRef.current = client;
 
-    client.on('connect', () => {
-      setConnection('connected')
-      client.subscribe('sensors/+/project33/+/data')
-      client.subscribe('alerts/+/project33/+/status')
-    })
+    client.on("connect", () => {
+      setConnection("connected");
+      client.subscribe("sensors/+/project33/+/data");
+      client.subscribe("alerts/+/project33/+/status");
+      client.subscribe("storage/group_33/project33/export/result");
+    });
 
-    client.on('reconnect', () => setConnection('reconnecting'))
-    client.on('close', () => setConnection('disconnected'))
-    client.on('error', () => setConnection('error'))
+    client.on("reconnect", () => setConnection("reconnecting"));
+    client.on("close", () => setConnection("disconnected"));
+    client.on("error", () => setConnection("error"));
 
-    client.on('message', (topic, payload) => {
-      let data
+    client.on("message", (topic, payload) => {
+      let data;
       try {
-        data = JSON.parse(payload.toString())
+        data = JSON.parse(payload.toString());
       } catch (err) {
-        return
+        return;
       }
 
-      if (topic.includes('/data')) {
-        const deviceId = getDeviceId(topic, data)
+      if (topic.includes("/data")) {
+        const deviceId = getDeviceId(topic, data);
         setDevices((prev) => {
           if (!prev[deviceId]) {
-            return prev
+            return prev;
           }
-          const actual = Number(data.actual_temp)
+          const actual = Number(data.actual_temp);
           const predicted =
-            typeof data.predicted_temp === 'number'
+            typeof data.predicted_temp === "number"
               ? data.predicted_temp
-              : Number(data.predicted_temp)
-          const timestamp = data.timestamp || new Date().toISOString()
+              : Number(data.predicted_temp);
+          const timestamp = data.timestamp || new Date().toISOString();
 
           // The edge service publishes naive local-time strings (no TZ), so
           // parsing them directly on the browser can be off by hours when the
@@ -141,18 +160,18 @@ function App() {
           // the chart to the browser clock: use the receipt time as "now" and
           // place the predicted point `prediction_horizon_sec` into the
           // future.
-          const actualTs = Date.now()
+          const actualTs = Date.now();
           const horizonSec =
-            typeof data.prediction_horizon_sec === 'number'
+            typeof data.prediction_horizon_sec === "number"
               ? data.prediction_horizon_sec
-              : Number(data.prediction_horizon_sec) || 60
-          const predictedTs = actualTs + horizonSec * 1000
+              : Number(data.prediction_horizon_sec) || 60;
+          const predictedTs = actualTs + horizonSec * 1000;
 
           const actualPoint = {
             ts: actualTs,
             actual: Number.isNaN(actual) ? null : actual,
             predicted: null,
-          }
+          };
 
           const predictedPoint = Number.isNaN(predicted)
             ? null
@@ -160,7 +179,7 @@ function App() {
                 ts: predictedTs,
                 actual: null,
                 predicted,
-              }
+              };
 
           // Merge the incoming points into the existing series:
           //  - sort chronologically so Recharts draws the line left-to-right
@@ -171,7 +190,7 @@ function App() {
             ...(predictedPoint ? [predictedPoint] : []),
           ]
             .sort((a, b) => a.ts - b.ts)
-            .slice(-MAX_POINTS)
+            .slice(-MAX_POINTS);
 
           return {
             ...prev,
@@ -181,25 +200,25 @@ function App() {
               predicted: Number.isNaN(predicted) ? null : predicted,
               trend: data.trend || prev[deviceId].trend,
               trendSlope:
-                typeof data.trend_slope === 'number'
+                typeof data.trend_slope === "number"
                   ? data.trend_slope
                   : prev[deviceId].trendSlope,
               threshold:
-                typeof data.threshold === 'number'
+                typeof data.threshold === "number"
                   ? data.threshold
                   : prev[deviceId].threshold,
               lastSeen: timestamp,
               series,
             },
-          }
-        })
+          };
+        });
       }
 
-      if (topic.includes('/status')) {
-        const deviceId = getDeviceId(topic, data)
+      if (topic.includes("/status")) {
+        const deviceId = getDeviceId(topic, data);
         setDevices((prev) => {
           if (!prev[deviceId]) {
-            return prev
+            return prev;
           }
           return {
             ...prev,
@@ -209,34 +228,46 @@ function App() {
               statusMessage: data.message || prev[deviceId].statusMessage,
               lastSeen: data.timestamp || prev[deviceId].lastSeen,
             },
-          }
-        })
+          };
+        });
         setAlerts((prev) => {
           const next = [
             {
               deviceId,
-              status: data.status || 'UNKNOWN',
-              message: data.message || 'No message',
+              status: data.status || "UNKNOWN",
+              message: data.message || "No message",
               timestamp: data.timestamp || new Date().toISOString(),
             },
             ...prev,
-          ]
-          return next.slice(0, 10)
-        })
+          ];
+          return next.slice(0, 10);
+        });
       }
-    })
+
+      if (topic.includes("/export/result")) {
+        setExportResult({
+          status: data.status || "UNKNOWN",
+          minutes: data.minutes,
+          deviceId: data.device_id,
+          csvPath: data.csv_path,
+          rowCount: data.row_count,
+          error: data.error,
+          timestamp: data.timestamp || new Date().toISOString(),
+        });
+      }
+    });
 
     return () => {
-      client.end(true)
-    }
-  }, [])
+      client.end(true);
+    };
+  }, []);
 
-  const activeData = devices[activeDevice] || emptyDevice()
+  const activeData = devices[activeDevice] || emptyDevice();
   useEffect(() => {
-    if (typeof activeData.threshold === 'number') {
-      setThresholdInput(activeData.threshold)
+    if (typeof activeData.threshold === "number") {
+      setThresholdInput(activeData.threshold);
     }
-  }, [activeDevice, activeData.threshold])
+  }, [activeDevice, activeData.threshold]);
   const deviceRows = useMemo(
     () =>
       Object.entries(devices)
@@ -246,39 +277,58 @@ function App() {
           status: data.status,
           actual: data.actual,
         }))
-        .sort((a, b) => (b.lastSeen || '').localeCompare(a.lastSeen || '')),
-    [devices]
-  )
+        .sort((a, b) => (b.lastSeen || "").localeCompare(a.lastSeen || "")),
+    [devices],
+  );
 
   const onlineCount = useMemo(() => {
-    const now = Date.now()
+    const now = Date.now();
     return deviceRows.filter((row) => {
-      if (!row.lastSeen) return false
-      const ts = Date.parse(row.lastSeen)
-      return !Number.isNaN(ts) && now - ts < 120000
-    }).length
-  }, [deviceRows])
+      if (!row.lastSeen) return false;
+      const ts = Date.parse(row.lastSeen);
+      return !Number.isNaN(ts) && now - ts < 120000;
+    }).length;
+  }, [deviceRows]);
 
   const criticalCount = useMemo(
-    () => deviceRows.filter((row) => row.status === 'CRITICAL').length,
-    [deviceRows]
-  )
+    () => deviceRows.filter((row) => row.status === "CRITICAL").length,
+    [deviceRows],
+  );
 
   const avgThreshold = useMemo(() => {
     const values = Object.values(devices)
       .map((item) => item.threshold)
-      .filter((value) => typeof value === 'number')
-    if (!values.length) return null
-    return values.reduce((sum, value) => sum + value, 0) / values.length
-  }, [devices])
+      .filter((value) => typeof value === "number");
+    if (!values.length) return null;
+    return values.reduce((sum, value) => sum + value, 0) / values.length;
+  }, [devices]);
 
   const handleThresholdApply = () => {
-    if (!clientRef.current) return
-    const value = Number(thresholdInput)
-    if (Number.isNaN(value)) return
-    const payload = JSON.stringify({ threshold: value })
-    clientRef.current.publish('controls/group_33/project33/threshold', payload)
-  }
+    if (!clientRef.current) return;
+    const value = Number(thresholdInput);
+    if (Number.isNaN(value)) return;
+    const payload = JSON.stringify({ threshold: value });
+    clientRef.current.publish("controls/group_33/project33/threshold", payload);
+  };
+
+  const handleExportCsv = () => {
+    if (!clientRef.current) return;
+    const minutes = clamp(Number(exportMinutes), 1, 1440);
+    if (Number.isNaN(minutes)) return;
+    setExportMinutes(minutes);
+    setExportResult({
+      status: "PENDING",
+      minutes,
+      csvPath: null,
+      rowCount: null,
+      error: null,
+      timestamp: new Date().toISOString(),
+    });
+    clientRef.current.publish(
+      "storage/group_33/project33/export",
+      JSON.stringify({ minutes, device_id: exportDevice }),
+    );
+  };
 
   return (
     <div className="app-shell">
@@ -286,7 +336,9 @@ function App() {
         <div className="top-left">
           <p className="eyebrow">Industrial Edge Suite</p>
           <h1>Predictive Temperature Command Center</h1>
-          <p className="subhead">Plant Line A - Sector 3 | Live MQTT Telemetry</p>
+          <p className="subhead">
+            Plant Line A - Sector 3 | Live MQTT Telemetry
+          </p>
         </div>
         <div className="top-right">
           <div className="clock-stack">
@@ -310,7 +362,7 @@ function App() {
         </div>
         <div className="hero-card">
           <p className="label">Critical Alerts</p>
-          <p className={`value-xl ${criticalCount ? 'critical' : 'normal'}`}>
+          <p className={`value-xl ${criticalCount ? "critical" : "normal"}`}>
             {criticalCount}
           </p>
           <span className="hint">Active devices</span>
@@ -318,7 +370,7 @@ function App() {
         <div className="hero-card">
           <p className="label">Avg Threshold</p>
           <p className="value-xl">
-            {avgThreshold === null ? 'N/A' : avgThreshold.toFixed(1)}
+            {avgThreshold === null ? "N/A" : avgThreshold.toFixed(1)}
             <span className="unit">degC</span>
           </p>
           <span className="hint">Config baseline</span>
@@ -344,7 +396,7 @@ function App() {
         <div>
           <p className="label">Threshold</p>
           <p className="value-xl">
-            {activeData.threshold ?? 'N/A'}
+            {activeData.threshold ?? "N/A"}
             <span className="unit">degC</span>
           </p>
         </div>
@@ -362,12 +414,12 @@ function App() {
               <button
                 key={id}
                 type="button"
-                className={`device-tab ${activeDevice === id ? 'active' : ''}`}
+                className={`device-tab ${activeDevice === id ? "active" : ""}`}
                 onClick={() => setActiveDevice(id)}
               >
                 <span>{id}</span>
-                <span className={`status-chip ${devices[id]?.status || ''}`}>
-                  {devices[id]?.status || 'N/A'}
+                <span className={`status-chip ${devices[id]?.status || ""}`}>
+                  {devices[id]?.status || "N/A"}
                 </span>
               </button>
             ))}
@@ -377,7 +429,7 @@ function App() {
             <p className="muted">Broadcast to all devices</p>
             <div className="threshold-display">
               <span>Active</span>
-              <strong>{activeData.threshold ?? 'N/A'} degC</strong>
+              <strong>{activeData.threshold ?? "N/A"} degC</strong>
             </div>
             <div className="slider-wrap">
               <input
@@ -398,10 +450,86 @@ function App() {
               type="button"
               className="apply-btn"
               onClick={handleThresholdApply}
-              disabled={connection !== 'connected'}
+              disabled={connection !== "connected"}
             >
               Apply Threshold
             </button>
+          </div>
+          <div className="control-panel">
+            <h3>CSV Export</h3>
+            <p className="muted">Select time window</p>
+            <div className="export-row">
+              <label htmlFor="export-minutes">Minutes</label>
+              <input
+                id="export-minutes"
+                type="number"
+                min="1"
+                max="1440"
+                step="1"
+                value={exportMinutes}
+                onChange={(event) => setExportMinutes(event.target.value)}
+              />
+            </div>
+            <div className="export-row">
+              <label htmlFor="export-device">Device</label>
+              <select
+                id="export-device"
+                value={exportDevice}
+                onChange={(event) => setExportDevice(event.target.value)}
+              >
+                {DEVICE_IDS.map((id) => (
+                  <option key={id} value={id}>
+                    {id}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="export-quick">
+              {[15, 60, 240, 1440].map((minutes) => (
+                <button
+                  key={minutes}
+                  type="button"
+                  onClick={() => setExportMinutes(minutes)}
+                >
+                  {minutes === 1440 ? "24h" : `${minutes}m`}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="apply-btn"
+              onClick={handleExportCsv}
+              disabled={connection !== "connected"}
+            >
+              Export CSV
+            </button>
+            <div className="export-status">
+              <p className="muted">
+                {exportResult
+                  ? `Status: ${exportResult.status}`
+                  : "Status: idle"}
+              </p>
+              {exportResult?.csvPath && (
+                <p className="muted">Saved: {exportResult.csvPath}</p>
+              )}
+              {exportDownloadUrl && (
+                <a
+                  className="download-link"
+                  href={exportDownloadUrl}
+                  download
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Download CSV
+                </a>
+              )}
+              {typeof exportResult?.rowCount === "number" && (
+                <p className="muted">Rows: {exportResult.rowCount}</p>
+              )}
+              {exportResult?.error && (
+                <p className="muted">Error: {exportResult.error}</p>
+              )}
+            </div>
           </div>
           <div className="alert-panel">
             <h3>Alert Feed</h3>
@@ -432,8 +560,14 @@ function App() {
               </div>
               <div className="chart-wrap">
                 <ResponsiveContainer width="100%" height={280}>
-                  <LineChart data={activeData.series} margin={{ left: 10, right: 20 }}>
-                    <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="4 4" />
+                  <LineChart
+                    data={activeData.series}
+                    margin={{ left: 10, right: 20 }}
+                  >
+                    <CartesianGrid
+                      stroke="rgba(255,255,255,0.08)"
+                      strokeDasharray="4 4"
+                    />
                     <XAxis
                       dataKey="ts"
                       type="number"
@@ -450,9 +584,9 @@ function App() {
                     <YAxis stroke="#8fa3b8" tickFormatter={(v) => `${v}`} />
                     <Tooltip
                       contentStyle={{
-                        background: '#111923',
-                        border: '1px solid #2c3b4d',
-                        color: '#f8fafc',
+                        background: "#111923",
+                        border: "1px solid #2c3b4d",
+                        color: "#f8fafc",
                       }}
                       labelFormatter={(value) => formatClock(value)}
                     />
@@ -462,7 +596,12 @@ function App() {
                       strokeDasharray="3 3"
                       strokeOpacity={0.55}
                     >
-                      <Label value="now" position="insideTopRight" fill="#f8fafc" fontSize={11} />
+                      <Label
+                        value="now"
+                        position="insideTopRight"
+                        fill="#f8fafc"
+                        fontSize={11}
+                      />
                     </ReferenceLine>
                     <Line
                       type="monotone"
@@ -497,14 +636,14 @@ function App() {
                 <div>
                   <p className="label">Actual Temp</p>
                   <p className="value-lg">
-                    {activeData.actual ?? 'N/A'}
+                    {activeData.actual ?? "N/A"}
                     <span className="unit">degC</span>
                   </p>
                 </div>
                 <div>
                   <p className="label">Predicted Temp</p>
                   <p className="value-lg">
-                    {activeData.predicted ?? 'N/A'}
+                    {activeData.predicted ?? "N/A"}
                     <span className="unit">degC</span>
                   </p>
                 </div>
@@ -514,9 +653,7 @@ function App() {
                 </div>
                 <div>
                   <p className="label">Trend Slope</p>
-                  <p className="value-lg">
-                    {activeData.trendSlope ?? 'N/A'}
-                  </p>
+                  <p className="value-lg">{activeData.trendSlope ?? "N/A"}</p>
                 </div>
                 <div>
                   <p className="label">Last Seen</p>
@@ -555,12 +692,18 @@ function App() {
               </div>
               <div className="gauge-grid">
                 {deviceRows.map((row) => {
-                  const actual = typeof row.actual === 'number' ? row.actual : null
-                  const normalized = actual === null
-                    ? 0
-                    : clamp((actual - MIN_TEMP) / (MAX_TEMP - MIN_TEMP), 0, 1)
-                  const needle = -90 + normalized * 180
-                  const fill = normalized * 180
+                  const actual =
+                    typeof row.actual === "number" ? row.actual : null;
+                  const normalized =
+                    actual === null
+                      ? 0
+                      : clamp(
+                          (actual - MIN_TEMP) / (MAX_TEMP - MIN_TEMP),
+                          0,
+                          1,
+                        );
+                  const needle = -90 + normalized * 180;
+                  const fill = normalized * 180;
                   return (
                     <div key={row.id} className="gauge-card">
                       <div className="gauge-meta">
@@ -573,8 +716,8 @@ function App() {
                         <div
                           className="gauge-dial"
                           style={{
-                            '--fill-angle': `${fill}deg`,
-                            '--needle-angle': `${needle}deg`,
+                            "--fill-angle": `${fill}deg`,
+                            "--needle-angle": `${needle}deg`,
                           }}
                         >
                           <span className="gauge-needle" />
@@ -582,7 +725,9 @@ function App() {
                         </div>
                       </div>
                       <div className="gauge-readout">
-                        <span>{actual === null ? 'N/A' : actual.toFixed(1)}</span>
+                        <span>
+                          {actual === null ? "N/A" : actual.toFixed(1)}
+                        </span>
                         <span className="unit">degC</span>
                       </div>
                       <div className="gauge-scale">
@@ -590,7 +735,7 @@ function App() {
                         <span>{MAX_TEMP}</span>
                       </div>
                     </div>
-                  )
+                  );
                 })}
               </div>
             </div>
@@ -598,7 +743,7 @@ function App() {
         </main>
       </div>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
